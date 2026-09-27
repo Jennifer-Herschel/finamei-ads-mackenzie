@@ -34,6 +34,7 @@ Um repositório único, dois times (back e front), integrados por um contrato de
 | Banco de dados | PostgreSQL 16 | Definido na documentação do projeto. |
 | Migração de schema | Flyway | Versiona o schema junto do código, sem passo manual — essencial com 3 devs de back mexendo no banco em paralelo. |
 | ORM | Hibernate via Spring Data JPA | Padrão do ecossistema Spring. |
+| Chave primária | `UUID` (`java.util.UUID`), gerado pela aplicação via Hibernate `GenerationType.UUID` | Evita vazar volume de registros por id sequencial e simplifica merge entre ambientes; nunca usar `Long`/identidade incremental. |
 | Autenticação | JWT (jjwt) + Spring Security | Token stateless, conforme ONF04. Access token curto (ex: 30 min, alinhado ao ONF04) — sem refresh token para manter simples no MVP. |
 | Hash de senha | BCrypt (Spring Security `PasswordEncoder`, fator de custo 10) | Exigido por ONF03. |
 | Validação | Jakarta Bean Validation (`@Valid`, `@NotNull`, `@DecimalMin` etc.) | Aplica RN06 (valor > 0, 2 casas decimais, data não futura, descrição ≤ 120 chars) direto nos DTOs. |
@@ -43,7 +44,9 @@ Um repositório único, dois times (back e front), integrados por um contrato de
 | Cobertura | JaCoCo | Gera relatório de cobertura para acompanhar a meta do ONF11. |
 | Documentação de API | springdoc-openapi (Swagger UI) | Contrato vivo consumido pelo time de front sem precisar de codegen. |
 
-**Organização em camadas** (já definida no cap. 8 da documentação): `Controller → Service → Repository → Domain`, um pacote por módulo de domínio (`auth`, `lancamento`, `categoria`, `faturamento`, `das`, `contador`, `usuario`).
+**Organização em camadas** (já definida no cap. 8 da documentação): `Controller → Service → Repository → Domain`, um pacote por módulo de domínio (`auth`, `transaction`, `category`, `revenue`, `das`, `accountant`, `user`).
+
+**Convenção de nomenclatura**: todo o código de produção é escrito em inglês (classes, métodos, variáveis, pacotes, migrations, tabelas e colunas); apenas os testes permanecem em português. Termos do domínio brasileiro sem tradução direta (`MEI`, `DAS`) são mantidos como estão. Detalhes e exceções em [`context.MD`](../context.MD), seção 11.
 
 ## Front-end
 
