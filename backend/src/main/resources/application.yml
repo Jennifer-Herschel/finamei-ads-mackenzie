@@ -15,6 +15,11 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+app:
+  jwt:
+    secret: ${JWT_SECRET:finamei-local-dev-jwt-secret-do-not-use-in-production-1234567890}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:30}
+
 management:
   endpoints:
     web:
