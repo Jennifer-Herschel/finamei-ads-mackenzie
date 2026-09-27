@@ -13,25 +13,25 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-	@ExceptionHandler(EmailJaCadastradoException.class)
-	public ResponseEntity<ErrorResponse> tratarEmailJaCadastrado(EmailJaCadastradoException ex) {
+	@ExceptionHandler(EmailAlreadyRegisteredException.class)
+	public ResponseEntity<ErrorResponse> handleEmailAlreadyRegistered(EmailAlreadyRegisteredException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
-				.body(ErrorResponse.de("EMAIL_JA_CADASTRADO", ex.getMessage()));
+				.body(ErrorResponse.of("EMAIL_ALREADY_REGISTERED", ex.getMessage()));
 	}
 
 	@ExceptionHandler(DataIntegrityViolationException.class)
-	public ResponseEntity<ErrorResponse> tratarViolacaoDeIntegridade(DataIntegrityViolationException ex) {
+	public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
-				.body(ErrorResponse.de("CONFLITO_DE_DADOS", "Os dados informados conflitam com um registro existente."));
+				.body(ErrorResponse.of("DATA_CONFLICT", "Os dados informados conflitam com um registro existente."));
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
-	public ResponseEntity<ErrorResponse> tratarDadosInvalidos(MethodArgumentNotValidException ex) {
+	public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
 		Map<String, String> fieldErrors = new LinkedHashMap<>();
-		for (FieldError erro : ex.getBindingResult().getFieldErrors()) {
-			fieldErrors.put(erro.getField(), erro.getDefaultMessage());
+		for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+			fieldErrors.put(error.getField(), error.getDefaultMessage());
 		}
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-				.body(ErrorResponse.deValidacao("Os dados informados são inválidos.", fieldErrors));
+				.body(ErrorResponse.ofValidationError("Os dados informados são inválidos.", fieldErrors));
 	}
 }
