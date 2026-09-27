@@ -90,7 +90,7 @@ Adotar um monólito modular organizado por domínio, seguindo o fluxo:
 Controller -> Service -> Repository -> Domain
 ```
 
-Módulos previstos: `auth`, `usuario`, `lancamento`, `categoria`, `faturamento`, `das`, `relatorio` e `contador`.
+Módulos previstos: `auth`, `user`, `transaction`, `category`, `revenue`, `das`, `report` e `accountant` (nomes em inglês — ver convenção de nomenclatura na seção 11).
 
 Diretrizes:
 
@@ -104,14 +104,17 @@ Diretrizes:
 - usar `BigDecimal` para valores monetários, nunca `double` ou `float`;
 - usar `LocalDate` para datas sem horário e tipos temporais com fuso quando o instante for relevante;
 - centralizar tratamento de erros com `@RestControllerAdvice`;
-- nunca confiar em `usuarioId` enviado pelo cliente para determinar a propriedade de um recurso; usar a identidade autenticada;
-- evitar dependências entre módulos que criem ciclos.
+- nunca confiar em um identificador de usuário enviado pelo cliente para determinar a propriedade de um recurso; usar a identidade autenticada;
+- evitar dependências entre módulos que criem ciclos;
+- toda entidade persistente usa `UUID` (`java.util.UUID`) como identificador primário, gerado pela aplicação (Hibernate `GenerationType.UUID`); nunca usar identificador numérico incremental (`Long`/`BIGSERIAL`/`IDENTITY`).
 
 ### Banco de dados
 
 - toda alteração de schema deve ser feita por uma nova migration em `backend/src/main/resources/db/migration`;
 - migrations aplicadas nunca devem ser editadas; criar uma versão posterior para corrigir ou evoluir o schema;
-- nomear migrations como `V<numero>__<descricao_em_snake_case>.sql`;
+- nomear migrations como `V<numero>__<descricao_em_snake_case_em_ingles>.sql`;
+- tabelas e colunas usam nomenclatura em inglês, em `snake_case` (ex.: `users`, `password_hash`, `created_at`);
+- a chave primária de toda tabela é a coluna `id` do tipo `uuid`, sem valor padrão gerado pelo banco (o valor vem da aplicação);
 - constraints importantes também devem existir no banco, mesmo quando já validadas na aplicação;
 - exclusão de lançamentos é lógica quando a regra RN08 estiver em vigor;
 - dados iniciais, como categorias padrão, devem ser semeados por migration de forma idempotente quando aplicável.
@@ -123,7 +126,7 @@ Organizar o código por funcionalidade/domínio, mantendo infraestrutura compart
 ```text
 frontend/src/
 ├── app/                      # roteamento, providers e bootstrap
-├── features/                 # auth, lancamentos, categorias, das, relatorios...
+├── features/                 # auth, transactions, categories, das, reports...
 ├── components/               # componentes reutilizáveis sem regra de domínio
 ├── lib/                      # cliente HTTP e utilitários
 ├── hooks/                    # hooks compartilhados
@@ -157,7 +160,7 @@ Diretrizes:
   "code": "VALIDATION_ERROR",
   "message": "Os dados informados são inválidos.",
   "fieldErrors": {
-    "valor": "O valor deve ser maior que zero."
+    "amount": "O valor deve ser maior que zero."
   },
   "timestamp": "2026-09-24T12:00:00Z"
 }
@@ -166,7 +169,8 @@ Diretrizes:
 - datas devem ser serializadas em ISO 8601;
 - valores monetários devem ser números decimais com no máximo duas casas na entrada;
 - listagens com potencial de crescimento devem ser paginadas;
-- não registrar tokens, senhas ou dados sensíveis em logs.
+- não registrar tokens, senhas ou dados sensíveis em logs;
+- chaves de `fieldErrors` usam o nome em inglês do campo do DTO (ex.: `amount`, `email`); o `code` do erro também é em inglês (ex.: `VALIDATION_ERROR`); apenas `message` e as mensagens de `fieldErrors` são em português, pois são exibidas ao usuário final (ONF01/ONF02).
 
 ## 8. Regras importantes do domínio
 
@@ -234,8 +238,10 @@ No Windows, usar `mvnw.cmd` no lugar de `./mvnw`.
 ## 11. Convenções de colaboração
 
 - branches: `feature/<of-ou-rn>-<descricao>`, por exemplo `feature/of05-registrar-receita`;
-- usar nomes de domínio em português de forma consistente no código (`Lancamento`, `Categoria`, `Faturamento`), evitando misturar traduções para o mesmo conceito;
-- nomes técnicos consolidados podem permanecer em inglês (`Controller`, `Service`, `Repository`, `Request`, `Response`);
+- todo o código de produção (classes, métodos, variáveis, pacotes, comentários, migrations, tabelas e colunas) é escrito em inglês, seguindo as convenções usuais de cada linguagem (`PascalCase` para tipos, `camelCase` para métodos/variáveis, `snake_case` para identificadores SQL); traduzir os conceitos do domínio de forma consistente (ex.: `Lancamento` → `Transaction`, `Categoria` → `Category`, `Faturamento` → `Revenue`), sem misturar traduções diferentes para o mesmo conceito;
+- apenas os testes (nomes de métodos de teste, mensagens de asserção e comentários de teste) são escritos em português, para espelhar a linguagem dos casos de uso da documentação;
+- termos do domínio brasileiro sem tradução direta e já consolidados na documentação (`MEI`, `DAS`) permanecem como estão, mesmo em código em inglês;
+- mensagens de erro e qualquer texto exibido ao usuário final continuam em português (ONF01/ONF02); somente identificadores de código (nomes de campo no JSON, códigos de erro) seguem em inglês — ver exemplo na seção 7;
 - manter commits pequenos e focados;
 - não misturar refatorações não relacionadas com uma funcionalidade;
 - atualizar OpenAPI, testes e documentação junto com mudanças de comportamento;
