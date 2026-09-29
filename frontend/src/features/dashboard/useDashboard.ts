@@ -1,20 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { HttpError } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
+import { useAuthorizedFetch } from '../auth/useAuthorizedFetch'
 import { fetchBalanceSummary, fetchRevenueSummary } from './dashboard-api'
-
-/** Ends the local session when the backend says the token is no longer valid. */
-function useAuthorizedFetch() {
-  const { token, signOut } = useAuth()
-  return async <T>(request: (token: string | null) => Promise<T>) => {
-    try {
-      return await request(token)
-    } catch (error) {
-      if (error instanceof HttpError && error.status === 401) signOut()
-      throw error
-    }
-  }
-}
 
 export function useBalanceSummaryQuery(month: string) {
   const { token } = useAuth()

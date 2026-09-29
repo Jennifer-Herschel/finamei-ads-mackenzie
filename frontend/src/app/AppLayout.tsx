@@ -6,6 +6,7 @@ const navItems = [
   { to: '/painel', label: 'Painel' },
   { to: '/lancamentos', label: 'Lançamentos' },
   { to: '/das', label: 'DAS' },
+  { to: '/relatorios', label: 'Relatórios' },
   { to: '/perfil', label: 'Meu perfil' },
 ]
 
@@ -50,9 +51,9 @@ export function AppLayout() {
           </div>
 
           <nav aria-label="Navegação principal" className="w-full">
-            <ul className="-mx-1 flex gap-1 overflow-x-auto pb-1">
+            <ul className="-mx-1 flex flex-wrap gap-1 pb-1">
               {navItems.map((item) => (
-                <li key={item.to} className="shrink-0">
+                <li key={item.to}>
                   <NavLink
                     to={item.to}
                     className={({ isActive }) =>
