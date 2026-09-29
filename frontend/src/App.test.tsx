@@ -29,6 +29,8 @@ function renderApp(path: string, session?: AuthSession | null) {
 
 beforeEach(() => {
   fetchMock.mockReset()
+  // Screens load data on mount; keep requests pending so tests focus on routing.
+  fetchMock.mockImplementation(() => new Promise(() => {}))
   vi.stubGlobal('fetch', fetchMock)
   sessionStorage.clear()
 })
@@ -59,7 +61,7 @@ describe('App', () => {
     renderApp('/', { token: 'token', user: null })
 
     expect(
-      screen.getByRole('heading', { name: 'Painel financeiro' }),
+      screen.getByRole('heading', { name: 'Painel', level: 1 }),
     ).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Navegação principal' })
     expect(within(nav).getByRole('link', { name: 'Painel' })).toHaveAttribute(
@@ -122,7 +124,7 @@ describe('App', () => {
       expiresAt: Date.now() + 60_000,
     })
     expect(
-      screen.getByRole('heading', { name: 'Painel financeiro' }),
+      screen.getByRole('heading', { name: 'Painel', level: 1 }),
     ).toBeInTheDocument()
 
     act(() => {
