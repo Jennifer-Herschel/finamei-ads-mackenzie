@@ -15,6 +15,8 @@ export type AuthUser = {
 export type AuthSession = {
   token: string
   user: AuthUser | null
+  /** Epoch millis when the token expires; the session is dropped after it. */
+  expiresAt?: number
 }
 
 export type AuthContextValue = {

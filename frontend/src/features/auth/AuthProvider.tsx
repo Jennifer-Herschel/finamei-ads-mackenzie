@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   AUTH_STORAGE_KEY,
   AuthContext,
@@ -7,12 +13,19 @@ import {
   type AuthUser,
 } from './auth-context'
 
+const MAX_TIMEOUT_MS = 2_147_483_647
+
+function isExpired(session: AuthSession) {
+  return session.expiresAt !== undefined && session.expiresAt <= Date.now()
+}
+
 function readStoredSession(): AuthSession | null {
   try {
     const raw = sessionStorage.getItem(AUTH_STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as AuthSession
-    return typeof parsed?.token === 'string' ? parsed : null
+    if (typeof parsed?.token !== 'string' || isExpired(parsed)) return null
+    return parsed
   } catch {
     return null
   }
@@ -57,6 +70,17 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
       return next
     })
   }, [])
+
+  // Drop the session as soon as the token expires (ONF04), so protected
+  // routes send the user back to the login screen.
+  useEffect(() => {
+    if (session?.expiresAt === undefined) return
+    const delay = session.expiresAt - Date.now()
+    // setTimeout overflows above ~24.8 days and would fire immediately.
+    if (delay > MAX_TIMEOUT_MS) return
+    const timeout = setTimeout(signOut, delay)
+    return () => clearTimeout(timeout)
+  }, [session?.expiresAt, signOut])
 
   const value = useMemo<AuthContextValue>(
     () => ({
