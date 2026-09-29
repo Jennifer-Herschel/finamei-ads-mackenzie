@@ -12,14 +12,20 @@ export class HttpError extends Error {
   }
 }
 
+export type ApiFetchOptions = RequestInit & {
+  /** JWT do usuário autenticado; quando informado, envia o header Authorization. */
+  token?: string | null
+}
+
 export async function apiFetch<T>(
   path: string,
-  init: RequestInit = {},
+  { token, ...init }: ApiFetchOptions = {},
 ): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
   })
