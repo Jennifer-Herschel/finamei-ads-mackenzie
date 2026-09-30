@@ -19,11 +19,10 @@ const relatorioMensal: Report = {
   transactionCount: 12,
   revenue: {
     year: 2026,
-    accumulated: 66400,
-    limit: 81000,
+    accumulatedAmount: 66400,
+    annualLimit: 81000,
+    percentage: 81.98,
     band: 'ATTENTION',
-    proportionalLimit: false,
-    activeMonths: null,
   },
 }
 
