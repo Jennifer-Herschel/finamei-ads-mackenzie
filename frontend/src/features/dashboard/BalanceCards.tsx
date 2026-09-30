@@ -1,5 +1,5 @@
 import { formatCurrency } from '../../lib/format'
-import { SectionError } from './SectionError'
+import { SectionError } from '../../components/SectionError'
 import { useBalanceSummaryQuery } from './useDashboard'
 
 type BalanceCardsProps = {

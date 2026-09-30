@@ -73,6 +73,9 @@ describe('App', () => {
     ).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: 'DAS' })).toBeInTheDocument()
     expect(
+      within(nav).getByRole('link', { name: 'Relatórios' }),
+    ).toBeInTheDocument()
+    expect(
       within(nav).getByRole('link', { name: 'Meu perfil' }),
     ).toBeInTheDocument()
   })

@@ -4,6 +4,7 @@ import { LoginPage } from './features/auth/LoginPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { ProfilePage } from './features/profile/ProfilePage'
+import { ReportsPage } from './features/report/ReportsPage'
 
 const pages = {
   lancamentos: {
@@ -52,6 +53,7 @@ function App() {
           element={<PlaceholderPage {...pages.lancamentos} />}
         />
         <Route path="/das" element={<PlaceholderPage {...pages.das} />} />
+        <Route path="/relatorios" element={<ReportsPage />} />
         <Route path="/perfil" element={<ProfilePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
