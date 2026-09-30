@@ -212,6 +212,8 @@ describe('LoginPage', () => {
         'true',
       ),
     )
+    // The field is disabled while saving; it must still get the focus back.
+    await waitFor(() => expect(screen.getByLabelText('E-mail')).toHaveFocus())
   })
 
   it('mostra erro amigável quando o servidor não responde', async () => {

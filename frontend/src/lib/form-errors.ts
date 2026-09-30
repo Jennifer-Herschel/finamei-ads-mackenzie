@@ -11,14 +11,23 @@ export function applyApiFieldErrors<T extends FieldValues>(
   fields: readonly Path<T>[],
   setError: UseFormSetError<T>,
 ): boolean {
-  let applied = false
-  for (const [field, message] of Object.entries(
+  const matched = Object.entries(
     getApiErrorBody(error)?.fieldErrors ?? {},
-  )) {
-    if ((fields as readonly string[]).includes(field)) {
-      setError(field as Path<T>, { message }, { shouldFocus: !applied })
-      applied = true
-    }
+  ).filter(([field]) => (fields as readonly string[]).includes(field)) as [
+    Path<T>,
+    string,
+  ][]
+
+  for (const [field, message] of matched) setError(field, { message })
+
+  if (matched.length > 0) {
+    const [firstField, firstMessage] = matched[0]
+    // Forms disable their fields while saving, and a disabled field cannot
+    // take the focus. Focus once the form has re-rendered with them enabled.
+    setTimeout(() =>
+      setError(firstField, { message: firstMessage }, { shouldFocus: true }),
+    )
   }
-  return applied
+
+  return matched.length > 0
 }

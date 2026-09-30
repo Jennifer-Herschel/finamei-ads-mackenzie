@@ -56,15 +56,23 @@ function mockApi({
     const { paidAt } = JSON.parse(String(init?.body))
     return jsonResponse(200, { ...guia, status: 'PAID', paidAt })
   },
+  undo = (id) => {
+    const guia = guiasDoAno().find((g) => g.id === id)
+    return jsonResponse(200, { ...guia, status: 'OVERDUE', paidAt: null })
+  },
 }: {
   list?: (year: string) => Response | Promise<Response>
   pay?: (id: string, init?: RequestInit) => Response | Promise<Response>
+  undo?: (id: string) => Response | Promise<Response>
 } = {}) {
   fetchMock.mockImplementation(async (input, init) => {
     const url = new URL(String(input))
     const pagamento = /\/das\/([^/]+)\/payment$/.exec(url.pathname)
     if (pagamento && init?.method === 'POST') {
       return pay(decodeURIComponent(pagamento[1]), init)
+    }
+    if (pagamento && init?.method === 'DELETE') {
+      return undo(decodeURIComponent(pagamento[1]))
     }
     if (url.pathname.endsWith('/das')) {
       return list(url.searchParams.get('year') ?? '')
@@ -360,5 +368,169 @@ describe('DasPage', () => {
     expect(String(fetchMock.mock.calls.at(-1)?.[0])).toMatch(
       /\/das\?year=2025$/,
     )
+  })
+
+  it('não oferece pagamento para o mês em andamento nem para os meses futuros', async () => {
+    mockApi()
+    renderPage()
+
+    const setembro = await guia('Setembro de 2026')
+    expect(
+      within(setembro).queryByRole('button', { name: /como paga/ }),
+    ).not.toBeInTheDocument()
+    expect(setembro).toHaveTextContent(
+      'O pagamento fica disponível depois que o mês terminar.',
+    )
+    expect(
+      within(await guia('Dezembro de 2026')).queryByRole('button', {
+        name: /como paga/,
+      }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(await guia('Agosto de 2026')).getByRole('button', {
+        name: 'Marcar agosto de 2026 como paga',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('pede uma segunda confirmação quando a data é anterior ao mês da guia (4b)', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Marcar agosto de 2026 como paga',
+      }),
+    )
+    fireEvent.change(screen.getByLabelText('Data do pagamento'), {
+      target: { value: '2026-07-31' },
+    })
+    await user.click(
+      screen.getByRole('button', { name: 'Confirmar pagamento' }),
+    )
+
+    expect(
+      screen.getByText(/A data 31\/07\/2026 é anterior ao mês da guia/),
+    ).toHaveTextContent(
+      'A data 31/07/2026 é anterior ao mês da guia (agosto de 2026).',
+    )
+    expect(chamadasDePagamento()).toHaveLength(0)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Confirmar mesmo assim' }),
+    )
+
+    expect(
+      await screen.findByText('Pagamento de agosto de 2026 registrado.'),
+    ).toBeInTheDocument()
+    const [[, init]] = chamadasDePagamento()
+    expect(JSON.parse(String(init?.body))).toEqual({ paidAt: '2026-07-31' })
+  })
+
+  it('volta a pedir confirmação se a data anterior ao mês for trocada', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Marcar agosto de 2026 como paga',
+      }),
+    )
+    const data = screen.getByLabelText('Data do pagamento')
+    fireEvent.change(data, { target: { value: '2026-07-31' } })
+    await user.click(
+      screen.getByRole('button', { name: 'Confirmar pagamento' }),
+    )
+    fireEvent.change(data, { target: { value: '2026-07-30' } })
+
+    expect(
+      screen.getByRole('button', { name: 'Confirmar pagamento' }),
+    ).toBeInTheDocument()
+    expect(chamadasDePagamento()).toHaveLength(0)
+  })
+
+  it('desfaz um pagamento registrado por engano depois de confirmar (3a)', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Desfazer pagamento de janeiro de 2026',
+      }),
+    )
+    const confirmacao = screen.getByRole('group', {
+      name: 'Desfazer pagamento de janeiro de 2026',
+    })
+    expect(confirmacao).toHaveTextContent(
+      'Voltar a guia de janeiro de 2026 para pendente?',
+    )
+    await user.click(
+      within(confirmacao).getByRole('button', { name: 'Sim, desfazer' }),
+    )
+
+    expect(
+      await screen.findByText(
+        'Pagamento de janeiro de 2026 desfeito. A guia voltou para pendente.',
+      ),
+    ).toBeInTheDocument()
+    expect(await guia('Janeiro de 2026')).toHaveTextContent('Vencida')
+    expect(screen.getByText('5 de 12 guias pagas')).toBeInTheDocument()
+
+    const desfazer = fetchMock.mock.calls.filter(
+      ([, init]) => init?.method === 'DELETE',
+    )
+    expect(String(desfazer[0][0])).toMatch(/\/das\/das-2026-01\/payment$/)
+  })
+
+  it('permite desistir de desfazer o pagamento', async () => {
+    const user = userEvent.setup()
+    mockApi()
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Desfazer pagamento de janeiro de 2026',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(await guia('Janeiro de 2026')).toHaveTextContent(
+      'Paga em 18/02/2026',
+    )
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE'),
+    ).toHaveLength(0)
+  })
+
+  it('avisa quando a guia já estava pendente ao desfazer e recarrega a lista', async () => {
+    const user = userEvent.setup()
+    let listagens = 0
+    mockApi({
+      list: () => {
+        listagens++
+        return jsonResponse(200, guiasDoAno())
+      },
+      undo: () =>
+        jsonResponse(409, {
+          code: 'DAS_NOT_PAID',
+          message: 'Esta guia do DAS já está pendente.',
+        }),
+    })
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Desfazer pagamento de janeiro de 2026',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Sim, desfazer' }))
+
+    expect(
+      await screen.findByText('Esta guia do DAS já está pendente.'),
+    ).toBeInTheDocument()
+    expect(listagens).toBe(2)
   })
 })

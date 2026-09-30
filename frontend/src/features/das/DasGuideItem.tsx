@@ -13,9 +13,14 @@ import {
   DAS_PAYMENT_FIELDS,
   type DasPaymentFormValues,
 } from './das-schema'
-import { usePayDasMutation, useRefreshDasGuides } from './useDas'
+import {
+  usePayDasMutation,
+  useRefreshDasGuides,
+  useUndoDasPaymentMutation,
+} from './useDas'
 
 const ALREADY_PAID_MESSAGE = 'Esta guia já estava registrada como paga.'
+const ALREADY_PENDING_MESSAGE = 'Esta guia já estava pendente.'
 
 const statusStyle: Record<DasStatus, string> = {
   PAID: 'bg-emerald-50 text-emerald-800',
@@ -25,6 +30,10 @@ const statusStyle: Record<DasStatus, string> = {
 
 const buttonBase =
   'rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50'
+
+const secondaryButton = `${buttonBase} border border-slate-300 text-slate-800 hover:bg-slate-50`
+
+type Mode = 'idle' | 'paying' | 'undoing'
 
 function describeStatus(guide: DasGuide) {
   if (guide.status === 'PAID') {
@@ -46,18 +55,25 @@ type DasGuideItemProps = {
   todayIso: string
 }
 
-/** One monthly DAS guide, with the action to register its payment (OF14). */
+/** One monthly DAS guide, with the actions to register or undo its payment (OF14). */
 export function DasGuideItem({ guide, year, todayIso }: DasGuideItemProps) {
   const schema = useMemo(() => createDasPaymentSchema(todayIso), [todayIso])
-  const mutation = usePayDasMutation(year)
+  const payMutation = usePayDasMutation(year)
+  const undoMutation = useUndoDasPaymentMutation(year)
   const refreshGuides = useRefreshDasGuides(year)
-  const [isPaying, setIsPaying] = useState(false)
+  const [mode, setMode] = useState<Mode>('idle')
+  const [earlyDateToConfirm, setEarlyDateToConfirm] = useState<string | null>(
+    null,
+  )
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const label = competenceLabel(guide.competence)
   const title = label[0].toUpperCase() + label.slice(1)
   const fieldId = `das-paid-at-${guide.id}`
+  const competenceStart = `${guide.competence}-01`
+  // The DAS of a month is only calculated after the month ends.
+  const isPayable = guide.competence < todayIso.slice(0, 7)
 
   const {
     register,
@@ -69,23 +85,43 @@ export function DasGuideItem({ guide, year, todayIso }: DasGuideItemProps) {
     defaultValues: { paidAt: todayIso },
   })
 
+  const startAction = (next: Mode) => {
+    setFormError(null)
+    setSuccessMessage(null)
+    setEarlyDateToConfirm(null)
+    setMode(next)
+  }
+
+  const handleConflict = (message: string) => {
+    setMode('idle')
+    setFormError(message)
+    void refreshGuides()
+  }
+
   const onSubmit = handleSubmit((values) => {
     setFormError(null)
 
-    mutation.mutate(
+    // A date before the month of the guide is unusual (UC 4b): ask again.
+    if (
+      values.paidAt < competenceStart &&
+      earlyDateToConfirm !== values.paidAt
+    ) {
+      setEarlyDateToConfirm(values.paidAt)
+      return
+    }
+
+    payMutation.mutate(
       { id: guide.id, request: values },
       {
         onSuccess: () => {
-          setIsPaying(false)
+          setMode('idle')
           setSuccessMessage(`Pagamento de ${label} registrado.`)
         },
         onError: (error) => {
           if (error instanceof HttpError && error.status === 409) {
-            setIsPaying(false)
-            setFormError(
+            handleConflict(
               getApiErrorBody(error)?.message ?? ALREADY_PAID_MESSAGE,
             )
-            void refreshGuides()
             return
           }
           if (!applyApiFieldErrors(error, DAS_PAYMENT_FIELDS, setError)) {
@@ -95,6 +131,27 @@ export function DasGuideItem({ guide, year, todayIso }: DasGuideItemProps) {
       },
     )
   })
+
+  const confirmUndo = () => {
+    setFormError(null)
+    undoMutation.mutate(guide.id, {
+      onSuccess: () => {
+        setMode('idle')
+        setSuccessMessage(
+          `Pagamento de ${label} desfeito. A guia voltou para pendente.`,
+        )
+      },
+      onError: (error) => {
+        if (error instanceof HttpError && error.status === 409) {
+          handleConflict(
+            getApiErrorBody(error)?.message ?? ALREADY_PENDING_MESSAGE,
+          )
+          return
+        }
+        setFormError(getApiErrorMessage(error))
+      },
+    })
+  }
 
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -113,7 +170,7 @@ export function DasGuideItem({ guide, year, todayIso }: DasGuideItemProps) {
         </span>
       </div>
 
-      {(formError || successMessage) && !isPaying && (
+      {(formError || successMessage) && mode === 'idle' && (
         <div className="mt-3">
           {formError ? (
             <FormAlert tone="error">{formError}</FormAlert>
@@ -123,22 +180,67 @@ export function DasGuideItem({ guide, year, todayIso }: DasGuideItemProps) {
         </div>
       )}
 
-      {guide.status !== 'PAID' && !isPaying && (
+      {mode === 'idle' && guide.status !== 'PAID' && isPayable && (
         <button
           type="button"
           aria-label={`Marcar ${label} como paga`}
-          onClick={() => {
-            setFormError(null)
-            setSuccessMessage(null)
-            setIsPaying(true)
-          }}
+          onClick={() => startAction('paying')}
           className={`${buttonBase} mt-3 border border-emerald-700 text-emerald-800 hover:bg-emerald-50`}
         >
           Marcar como paga
         </button>
       )}
 
-      {isPaying && (
+      {guide.status !== 'PAID' && !isPayable && (
+        <p className="mt-3 text-sm text-slate-500">
+          O pagamento fica disponível depois que o mês terminar.
+        </p>
+      )}
+
+      {mode === 'idle' && guide.status === 'PAID' && (
+        <button
+          type="button"
+          aria-label={`Desfazer pagamento de ${label}`}
+          onClick={() => startAction('undoing')}
+          className={`${secondaryButton} mt-3`}
+        >
+          Desfazer pagamento
+        </button>
+      )}
+
+      {mode === 'undoing' && (
+        <div
+          role="group"
+          aria-label={`Desfazer pagamento de ${label}`}
+          className="mt-3 space-y-3"
+        >
+          {formError && <FormAlert tone="error">{formError}</FormAlert>}
+          <p className="text-sm text-slate-700">
+            Voltar a guia de {label} para pendente? Use esta opção só se o
+            pagamento foi registrado por engano.
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setMode('idle')}
+              disabled={undoMutation.isPending}
+              className={secondaryButton}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmUndo}
+              disabled={undoMutation.isPending}
+              className={`${buttonBase} bg-red-700 text-white hover:bg-red-800`}
+            >
+              {undoMutation.isPending ? 'Desfazendo…' : 'Sim, desfazer'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'paying' && (
         <form
           noValidate
           onSubmit={onSubmit}
@@ -152,26 +254,42 @@ export function DasGuideItem({ guide, year, todayIso }: DasGuideItemProps) {
             type="date"
             max={todayIso}
             error={errors.paidAt?.message}
-            {...register('paidAt')}
+            disabled={payMutation.isPending}
+            {...register('paidAt', {
+              onChange: () => setEarlyDateToConfirm(null),
+            })}
           />
+          {earlyDateToConfirm && (
+            <p
+              role="alert"
+              className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              A data {formatDate(earlyDateToConfirm)} é anterior ao mês da guia
+              ({label}). Confira a data ou confirme para registrar mesmo assim.
+            </p>
+          )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => {
-                setIsPaying(false)
+                setMode('idle')
                 setFormError(null)
               }}
-              disabled={mutation.isPending}
-              className={`${buttonBase} border border-slate-300 text-slate-800 hover:bg-slate-50`}
+              disabled={payMutation.isPending}
+              className={secondaryButton}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={mutation.isPending}
+              disabled={payMutation.isPending}
               className={`${buttonBase} bg-emerald-700 text-white hover:bg-emerald-800`}
             >
-              {mutation.isPending ? 'Registrando…' : 'Confirmar pagamento'}
+              {payMutation.isPending
+                ? 'Registrando…'
+                : earlyDateToConfirm
+                  ? 'Confirmar mesmo assim'
+                  : 'Confirmar pagamento'}
             </button>
           </div>
         </form>

@@ -48,6 +48,12 @@ public class ApiExceptionHandler {
 				.body(ErrorResponse.of("DAS_ALREADY_PAID", ex.getMessage()));
 	}
 
+	@ExceptionHandler(DasNotPaidException.class)
+	public ResponseEntity<ErrorResponse> handleDasNotPaid(DasNotPaidException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(ErrorResponse.of("DAS_NOT_PAID", ex.getMessage()));
+	}
+
 	@ExceptionHandler(ResourceNotFoundException.class)
 	public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)

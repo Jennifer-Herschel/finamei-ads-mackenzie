@@ -2,6 +2,7 @@ package br.com.finamei.das;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -170,6 +171,45 @@ class DasControllerTest {
 
 		mockMvc.perform(get(DAS_PATH).param("year", "2026").header(HttpHeaders.AUTHORIZATION, bearer(maria)))
 				.andExpect(jsonPath("$[6].status").value("OVERDUE"));
+	}
+
+	@Test
+	void deveDesfazerPagamentoLancadoPorEngano() throws Exception {
+		User maria = criarUsuario("maria.das.desfazer@exemplo.com");
+		String julho = idDaGuia(maria, 6);
+		pagar(maria, julho, "2026-09-10");
+
+		mockMvc.perform(delete(DAS_PATH + "/" + julho + "/payment").header(HttpHeaders.AUTHORIZATION, bearer(maria)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("OVERDUE"))
+				.andExpect(jsonPath("$.paidAt").doesNotExist());
+
+		mockMvc.perform(get(DAS_PATH).param("year", "2026").header(HttpHeaders.AUTHORIZATION, bearer(maria)))
+				.andExpect(jsonPath("$[6].status").value("OVERDUE"));
+	}
+
+	@Test
+	void deveRecusarDesfazerPagamentoDeGuiaPendente() throws Exception {
+		User maria = criarUsuario("maria.das.desfazer.pendente@exemplo.com");
+
+		mockMvc.perform(delete(DAS_PATH + "/" + idDaGuia(maria, 7) + "/payment")
+						.header(HttpHeaders.AUTHORIZATION, bearer(maria)))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("DAS_NOT_PAID"));
+	}
+
+	@Test
+	void naoDevePermitirDesfazerPagamentoDeOutroUsuario() throws Exception {
+		User maria = criarUsuario("maria.das.desfazer.dona@exemplo.com");
+		User joao = criarUsuario("joao.das.desfazer.intruso@exemplo.com");
+		String julho = idDaGuia(maria, 6);
+		pagar(maria, julho, "2026-09-10");
+
+		mockMvc.perform(delete(DAS_PATH + "/" + julho + "/payment").header(HttpHeaders.AUTHORIZATION, bearer(joao)))
+				.andExpect(status().isNotFound());
+
+		mockMvc.perform(get(DAS_PATH).param("year", "2026").header(HttpHeaders.AUTHORIZATION, bearer(maria)))
+				.andExpect(jsonPath("$[6].status").value("PAID"));
 	}
 
 	@Test

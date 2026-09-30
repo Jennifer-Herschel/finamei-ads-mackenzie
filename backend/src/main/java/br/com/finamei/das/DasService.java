@@ -2,6 +2,7 @@ package br.com.finamei.das;
 
 import br.com.finamei.das.dto.DasGuideResponse;
 import br.com.finamei.shared.error.DasAlreadyPaidException;
+import br.com.finamei.shared.error.DasNotPaidException;
 import br.com.finamei.shared.error.FieldValidationException;
 import br.com.finamei.shared.error.ResourceNotFoundException;
 import java.math.BigDecimal;
@@ -62,14 +63,29 @@ public class DasService {
 			throw new FieldValidationException("paidAt", "A data do pagamento não pode ser futura.");
 		}
 
-		DasGuide guide = repository.findByIdAndUserId(guideId, userId)
-				.orElseThrow(() -> new ResourceNotFoundException("Guia do DAS não encontrada."));
+		DasGuide guide = findOwned(userId, guideId);
 		if (guide.isPaid()) {
 			throw new DasAlreadyPaidException();
 		}
 
 		guide.markAsPaid(paidAt);
 		return DasGuideResponse.from(guide, today);
+	}
+
+	/** Desfaz um pagamento lançado por engano (UC "Controlar DAS", 3a). */
+	@Transactional
+	public DasGuideResponse undoPayment(UUID userId, UUID guideId) {
+		DasGuide guide = findOwned(userId, guideId);
+		if (!guide.isPaid()) {
+			throw new DasNotPaidException();
+		}
+		guide.markAsUnpaid();
+		return DasGuideResponse.from(guide, LocalDate.now(clock));
+	}
+
+	private DasGuide findOwned(UUID userId, UUID guideId) {
+		return repository.findByIdAndUserId(guideId, userId)
+				.orElseThrow(() -> new ResourceNotFoundException("Guia do DAS não encontrada."));
 	}
 
 	private void createMissingGuides(UUID userId, int year) {
