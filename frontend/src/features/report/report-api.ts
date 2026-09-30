@@ -36,18 +36,26 @@ function toQuery({ period, year, month }: ReportFilters) {
   return query
 }
 
-/** GET /reports?period=MONTHLY&year=2026&month=9 -> 200 Report */
-export function fetchReport(token: string | null, filters: ReportFilters) {
-  return apiFetch<Report>(`/reports?${toQuery(filters)}`, { token })
+/** Reports of the signed-in MEI. */
+export const OWN_REPORTS_PATH = '/reports'
+
+/** GET {basePath}?period=MONTHLY&year=2026&month=9 -> 200 Report */
+export function fetchReport(
+  token: string | null,
+  basePath: string,
+  filters: ReportFilters,
+) {
+  return apiFetch<Report>(`${basePath}?${toQuery(filters)}`, { token })
 }
 
-/** GET /reports/export?period=...&format=PDF|XLSX -> 200 file */
+/** GET {basePath}/export?period=...&format=PDF|XLSX -> 200 file */
 export function downloadReport(
   token: string | null,
+  basePath: string,
   filters: ReportFilters,
   format: ExportFormat,
 ) {
   const query = toQuery(filters)
   query.set('format', format)
-  return apiDownload(`/reports/export?${query}`, { token })
+  return apiDownload(`${basePath}/export?${query}`, { token })
 }

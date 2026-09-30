@@ -1,7 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './app/AppLayout'
 import { LoginPage } from './features/auth/LoginPage'
+import { ClientReportsPage } from './features/accountant/ClientReportsPage'
+import { ClientsPage } from './features/accountant/ClientsPage'
 import { RequireAuth } from './features/auth/RequireAuth'
+import { HomeRedirect, RequireRole } from './features/auth/role-routes'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { ProfilePage } from './features/profile/ProfilePage'
 import { ReportsPage } from './features/report/ReportsPage'
@@ -35,6 +38,10 @@ function PlaceholderPage({ title, description }: PageProps) {
   )
 }
 
+// Admin screens are not built yet; admins get the MEI screens for now.
+const MEI_ROLES = ['MEI', 'ADMIN'] as const
+const ACCOUNTANT_ONLY = ['ACCOUNTANT'] as const
+
 function App() {
   return (
     <Routes>
@@ -46,14 +53,35 @@ function App() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<Navigate to="/painel" replace />} />
-        <Route path="/painel" element={<DashboardPage />} />
+        <Route path="/" element={<HomeRedirect />} />
         <Route
-          path="/lancamentos"
-          element={<PlaceholderPage {...pages.lancamentos} />}
-        />
-        <Route path="/das" element={<PlaceholderPage {...pages.das} />} />
-        <Route path="/relatorios" element={<ReportsPage />} />
+          element={
+            <RequireRole roles={MEI_ROLES}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path="/painel" element={<DashboardPage />} />
+          <Route
+            path="/lancamentos"
+            element={<PlaceholderPage {...pages.lancamentos} />}
+          />
+          <Route path="/das" element={<PlaceholderPage {...pages.das} />} />
+          <Route path="/relatorios" element={<ReportsPage />} />
+        </Route>
+        <Route
+          element={
+            <RequireRole roles={ACCOUNTANT_ONLY}>
+              <Outlet />
+            </RequireRole>
+          }
+        >
+          <Route path="/clientes" element={<ClientsPage />} />
+          <Route
+            path="/clientes/:clientId/relatorios"
+            element={<ClientReportsPage />}
+          />
+        </Route>
         <Route path="/perfil" element={<ProfilePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

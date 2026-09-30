@@ -7,6 +7,7 @@ import { AuthProvider } from './AuthProvider'
 import { AUTH_STORAGE_KEY, type AuthSession } from './auth-context'
 import { LoginPage } from './LoginPage'
 import { RequireAuth } from './RequireAuth'
+import { HomeRedirect } from './role-routes'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -26,7 +27,9 @@ function renderLogin(path = '/login', session: AuthSession | null = null) {
       <AuthProvider initialSession={session}>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
+            <Route path="/" element={<HomeRedirect />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/clientes" element={<h1>Meus clientes</h1>} />
             <Route
               path="/painel"
               element={
@@ -48,6 +51,13 @@ function renderLogin(path = '/login', session: AuthSession | null = null) {
       </AuthProvider>
     </QueryClientProvider>,
   )
+}
+
+/** Unsigned JWT carrying only the claims the interface reads. */
+function tokenWithRole(role: string) {
+  const encode = (value: object) =>
+    btoa(JSON.stringify(value)).replace(/=+$/, '')
+  return `${encode({ alg: 'HS256' })}.${encode({ sub: '1', role })}.assinatura`
 }
 
 async function fillAndSubmit(email: string, password: string) {
@@ -96,6 +106,23 @@ describe('LoginPage', () => {
     const stored = JSON.parse(sessionStorage.getItem(AUTH_STORAGE_KEY)!)
     expect(stored.token).toBe('jwt-de-teste')
     expect(stored.expiresAt).toBeGreaterThan(Date.now())
+  })
+
+  it('leva o contador para a lista de clientes depois de entrar', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        token: tokenWithRole('ACCOUNTANT'),
+        tokenType: 'Bearer',
+        expiresInSeconds: 1800,
+      }),
+    )
+    renderLogin()
+
+    await fillAndSubmit('contador@exemplo.com', 'senha-secreta')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Meus clientes' }),
+    ).toBeInTheDocument()
   })
 
   it('volta para a tela que o usuário tentou abrir antes de entrar', async () => {

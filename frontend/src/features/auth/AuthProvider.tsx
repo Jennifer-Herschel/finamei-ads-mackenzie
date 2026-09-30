@@ -12,6 +12,7 @@ import {
   type AuthSession,
   type AuthUser,
 } from './auth-context'
+import { getTokenRole } from './token-claims'
 
 const MAX_TIMEOUT_MS = 2_147_483_647
 
@@ -86,6 +87,9 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
     () => ({
       token: session?.token ?? null,
       user: session?.user ?? null,
+      role: session
+        ? (session.user?.role ?? getTokenRole(session.token))
+        : null,
       isAuthenticated: Boolean(session?.token),
       signIn,
       signOut,

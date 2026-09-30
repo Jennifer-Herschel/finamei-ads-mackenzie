@@ -22,6 +22,8 @@ export type AuthSession = {
 export type AuthContextValue = {
   token: string | null
   user: AuthUser | null
+  /** Role of the signed-in user, from the profile or from the token. */
+  role: Role | null
   isAuthenticated: boolean
   signIn: (session: AuthSession) => void
   signOut: () => void

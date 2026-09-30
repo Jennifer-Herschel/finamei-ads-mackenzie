@@ -2,11 +2,17 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../features/auth/useAuth'
 
-const navItems = [
+const meiNavItems = [
   { to: '/painel', label: 'Painel' },
   { to: '/lancamentos', label: 'Lançamentos' },
   { to: '/das', label: 'DAS' },
   { to: '/relatorios', label: 'Relatórios' },
+  { to: '/perfil', label: 'Meu perfil' },
+]
+
+// The accountant only reads client data (OF17, RN11).
+const accountantNavItems = [
+  { to: '/clientes', label: 'Meus clientes' },
   { to: '/perfil', label: 'Meu perfil' },
 ]
 
@@ -15,7 +21,8 @@ const focusRing =
 
 /** Shell shared by every authenticated screen: header, navigation and sign out. */
 export function AppLayout() {
-  const { user, signOut } = useAuth()
+  const { user, role, signOut } = useAuth()
+  const navItems = role === 'ACCOUNTANT' ? accountantNavItems : meiNavItems
   const queryClient = useQueryClient()
 
   const handleSignOut = () => {
@@ -29,7 +36,7 @@ export function AppLayout() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
           <Link
-            to="/painel"
+            to="/"
             className={`rounded text-lg font-bold text-emerald-700 ${focusRing}`}
           >
             FinaMEI
