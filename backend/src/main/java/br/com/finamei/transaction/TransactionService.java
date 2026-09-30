@@ -1,0 +1,88 @@
+package br.com.finamei.transaction;
+
+import br.com.finamei.category.Category;
+import br.com.finamei.category.CategoryRepository;
+import br.com.finamei.shared.PageResponse;
+import br.com.finamei.shared.error.FieldValidationException;
+import br.com.finamei.transaction.dto.CreateTransactionRequest;
+import br.com.finamei.transaction.dto.TransactionResponse;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class TransactionService {
+
+    static final int MAX_PAGE_SIZE = 100;
+
+    // Mais recentes primeiro; no mesmo dia, o último registrado aparece antes.
+    private static final Sort NEWEST_FIRST = Sort.by(
+            Sort.Order.desc("transactionDate"), Sort.Order.desc("createdAt"));
+
+    private final TransactionRepository transactionRepository;
+    private final CategoryRepository categoryRepository;
+    private final Clock clock;
+
+    public TransactionService(
+            TransactionRepository transactionRepository,
+            CategoryRepository categoryRepository,
+            Clock clock) {
+        this.transactionRepository = transactionRepository;
+        this.categoryRepository = categoryRepository;
+        this.clock = clock;
+    }
+
+    /** O userId vem da identidade autenticada; o cliente nunca informa o dono do lançamento. */
+    @Transactional
+    public TransactionResponse create(UUID userId, CreateTransactionRequest request) {
+        if (request.date().isAfter(LocalDate.now(clock))) {
+            throw new FieldValidationException("date", "A data não pode ser futura.");
+        }
+        Category category = validCategoryFor(request);
+
+        Transaction transaction = transactionRepository.save(new Transaction(
+                userId,
+                category.getId(),
+                request.type(),
+                request.amount(),
+                request.date(),
+                request.description().trim()));
+        return TransactionResponse.from(transaction, category);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TransactionResponse> list(UUID userId, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE), NEWEST_FIRST);
+        Page<Transaction> transactions = transactionRepository.findByUserIdAndDeletedFalse(userId, pageRequest);
+
+        Set<UUID> categoryIds = transactions.stream().map(Transaction::getCategoryId).collect(Collectors.toSet());
+        Map<UUID, Category> categories = categoryRepository.findAllById(categoryIds).stream()
+                .collect(Collectors.toMap(Category::getId, Function.identity()));
+
+        return PageResponse.from(transactions, t -> TransactionResponse.from(t, categories.get(t.getCategoryId())));
+    }
+
+    // RN06 e RN07: a categoria precisa existir, estar ativa e ser do tipo do lançamento.
+    private Category validCategoryFor(CreateTransactionRequest request) {
+        Category category = categoryRepository.findById(request.categoryId())
+                .orElseThrow(() -> new FieldValidationException("categoryId", "Selecione uma categoria válida."));
+        if (!category.isActive()) {
+            throw new FieldValidationException(
+                    "categoryId", "A categoria selecionada está inativa. Escolha outra categoria.");
+        }
+        if (!category.acceptsNewTransactionOf(request.type())) {
+            throw new FieldValidationException(
+                    "categoryId", "A categoria selecionada não corresponde ao tipo do lançamento.");
+        }
+        return category;
+    }
+}

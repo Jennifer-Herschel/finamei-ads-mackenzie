@@ -3,11 +3,16 @@ package br.com.finamei.transaction;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
+
+    /** Lançamentos ativos (não excluídos, RN08) do usuário. */
+    Page<Transaction> findByUserIdAndDeletedFalse(UUID userId, Pageable pageable);
 
     /**
      * Soma os valores dos lançamentos ativos (não excluídos) de um usuário, de um tipo,
