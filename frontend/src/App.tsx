@@ -8,12 +8,9 @@ import { HomeRedirect, RequireRole } from './features/auth/role-routes'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { ProfilePage } from './features/profile/ProfilePage'
 import { ReportsPage } from './features/report/ReportsPage'
+import { TransactionsPage } from './features/transaction/TransactionsPage'
 
 const pages = {
-  lancamentos: {
-    title: 'Lançamentos',
-    description: 'Registre e acompanhe as movimentações do seu negócio.',
-  },
   das: {
     title: 'Controle do DAS',
     description: 'Consulte as guias mensais e mantenha os pagamentos em dia.',
@@ -62,10 +59,7 @@ function App() {
           }
         >
           <Route path="/painel" element={<DashboardPage />} />
-          <Route
-            path="/lancamentos"
-            element={<PlaceholderPage {...pages.lancamentos} />}
-          />
+          <Route path="/lancamentos" element={<TransactionsPage />} />
           <Route path="/das" element={<PlaceholderPage {...pages.das} />} />
           <Route path="/relatorios" element={<ReportsPage />} />
         </Route>

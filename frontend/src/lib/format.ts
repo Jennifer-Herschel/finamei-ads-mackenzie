@@ -22,3 +22,15 @@ export function toYearMonth(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   return `${date.getFullYear()}-${month}`
 }
+
+/** "2026-09-15", the date format used by the API (local time, no timezone shift). */
+export function toIsoDate(date: Date) {
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${toYearMonth(date)}-${day}`
+}
+
+/** "2026-09-15" -> "15/09/2026", without going through Date to avoid timezone shifts. */
+export function formatDate(isoDate: string) {
+  const [year, month, day] = isoDate.split('-')
+  return `${day}/${month}/${year}`
+}
