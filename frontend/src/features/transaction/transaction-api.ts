@@ -30,13 +30,44 @@ export type CreateTransactionRequest = {
 export const TRANSACTIONS_PATH = '/transactions'
 export const TRANSACTIONS_PAGE_SIZE = 20
 
-/** GET /transactions?page=N&size=20&sort=date,desc -> 200 Page<Transaction>, newest first. */
-export function fetchTransactions(token: string | null, page: number) {
+/** Filters of the transaction list (OF09). Empty values mean "any". */
+export type TransactionFilters = {
+  /** Start date, YYYY-MM-DD (inclusive). */
+  from: string
+  /** End date, YYYY-MM-DD (inclusive). */
+  to: string
+  type: TransactionType | ''
+  categoryId: string
+  /** Part of the description, case-insensitive. */
+  description: string
+}
+
+export const EMPTY_FILTERS: TransactionFilters = {
+  from: '',
+  to: '',
+  type: '',
+  categoryId: '',
+  description: '',
+}
+
+/**
+ * GET /transactions?page=N&size=20&sort=date,desc[&from&to&type&categoryId&description]
+ *   -> 200 Page<Transaction>, newest first, only the filters that are set.
+ */
+export function fetchTransactions(
+  token: string | null,
+  page: number,
+  filters: TransactionFilters = EMPTY_FILTERS,
+) {
   const query = new URLSearchParams({
     page: String(page),
     size: String(TRANSACTIONS_PAGE_SIZE),
     sort: 'date,desc',
   })
+  for (const [key, value] of Object.entries(filters)) {
+    const trimmed = value.trim()
+    if (trimmed) query.set(key, trimmed)
+  }
   return apiFetch<Page<Transaction>>(`${TRANSACTIONS_PATH}?${query}`, {
     token,
   })
@@ -55,4 +86,35 @@ export function createTransaction(
     method: 'POST',
     body: JSON.stringify(request),
   })
+}
+
+function transactionPath(id: string) {
+  return `${TRANSACTIONS_PATH}/${encodeURIComponent(id)}`
+}
+
+/**
+ * PUT /transactions/{id} -> 200 Transaction (OF06, OF08)
+ *   400 VALIDATION_ERROR with fieldErrors (RN06)
+ *   403 when it belongs to another user (ONF05)
+ *   404 when it was already deleted (UC 4c)
+ */
+export function updateTransaction(
+  token: string | null,
+  id: string,
+  request: CreateTransactionRequest,
+) {
+  return apiFetch<Transaction>(transactionPath(id), {
+    token,
+    method: 'PUT',
+    body: JSON.stringify(request),
+  })
+}
+
+/**
+ * DELETE /transactions/{id} -> 204. Logical deletion: the backend keeps the
+ * record marked as deleted, with date, time and user (RN08).
+ *   404 when it was already deleted (UC 4c)
+ */
+export function deleteTransaction(token: string | null, id: string) {
+  return apiFetch<void>(transactionPath(id), { token, method: 'DELETE' })
 }

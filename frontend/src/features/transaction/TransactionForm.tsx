@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { FormAlert } from '../../components/FormAlert'
 import { SectionError } from '../../components/SectionError'
@@ -7,15 +7,19 @@ import { SelectField } from '../../components/SelectField'
 import { TextField } from '../../components/TextField'
 import { getApiErrorMessage } from '../../lib/api-error'
 import { applyApiFieldErrors } from '../../lib/form-errors'
+import { HttpError } from '../../lib/http'
 import { useCategoriesQuery } from '../category/useCategories'
-import type { TransactionType } from './transaction-api'
+import type { Transaction, TransactionType } from './transaction-api'
 import {
   createTransactionSchema,
   TRANSACTION_FIELDS,
   type TransactionFormOutput,
   type TransactionFormValues,
 } from './transaction-schema'
-import { useCreateTransactionMutation } from './useTransactions'
+import {
+  useCreateTransactionMutation,
+  useUpdateTransactionMutation,
+} from './useTransactions'
 
 const typeOptions: { value: TransactionType; label: string }[] = [
   { value: 'INCOME', label: 'Receita' },
@@ -27,19 +31,42 @@ const typeLabels: Record<TransactionType, string> = {
   EXPENSE: 'despesa',
 }
 
+const DELETED_MESSAGE =
+  'Este lançamento não existe mais. Ele pode ter sido excluído em outra sessão.'
+
+/** 1500.5 -> "1500,50", the format the amount field accepts. */
+function toAmountInput(amount: number) {
+  return amount.toFixed(2).replace('.', ',')
+}
+
 type TransactionFormProps = {
   /** Reference date (YYYY-MM-DD): the default date and the latest one allowed. */
   todayIso: string
   initialType: TransactionType
+  /** When set, the form edits this transaction instead of creating one. */
+  transaction?: Transaction
+  /** Edit mode: called after saving, with the confirmation message. */
+  onSaved?: (message: string) => void
+  /** Edit mode: leaves the transaction as it was (UC 3a). */
+  onCancel?: () => void
 }
 
-/** Registers an income (OF05) or an expense (OF07). */
+/**
+ * Registers an income (OF05) or an expense (OF07), or edits one that was
+ * already registered (OF06, OF08).
+ */
 export function TransactionForm({
   todayIso,
   initialType,
+  transaction,
+  onSaved,
+  onCancel,
 }: TransactionFormProps) {
   const schema = useMemo(() => createTransactionSchema(todayIso), [todayIso])
-  const mutation = useCreateTransactionMutation()
+  const createMutation = useCreateTransactionMutation()
+  const updateMutation = useUpdateTransactionMutation()
+  const isEditing = transaction !== undefined
+  const isPending = createMutation.isPending || updateMutation.isPending
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
@@ -49,31 +76,76 @@ export function TransactionForm({
     reset,
     setError,
     setValue,
+    setFocus,
     control,
     formState: { errors },
   } = useForm<TransactionFormValues, unknown, TransactionFormOutput>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      type: initialType,
-      amount: '',
-      date: todayIso,
-      categoryId: '',
-      description: '',
-    },
+    defaultValues: transaction
+      ? {
+          type: transaction.type,
+          amount: toAmountInput(transaction.amount),
+          date: transaction.date,
+          categoryId: transaction.category.id,
+          description: transaction.description,
+        }
+      : {
+          type: initialType,
+          amount: '',
+          date: todayIso,
+          categoryId: '',
+          description: '',
+        },
   })
+
+  // Opening the edit form moves the focus to it, also on small screens where
+  // it sits above the list (UC step 2).
+  useEffect(() => {
+    if (isEditing) setFocus('amount')
+  }, [isEditing, setFocus])
 
   const type = useWatch({ control, name: 'type' })
   const categoriesQuery = useCategoriesQuery(type)
+  // An inactive category no longer shows up for new transactions, but stays on
+  // the ones that already use it (RN07), so keep it available while editing.
+  const keptCategory =
+    transaction &&
+    transaction.type === type &&
+    categoriesQuery.data &&
+    !categoriesQuery.data.some((item) => item.id === transaction.category.id)
+      ? transaction.category
+      : null
 
   const clearFeedback = () => setSuccessMessage(null)
 
   // Fields stay enabled while saving: a server field error must be able to
   // take the focus (ONF01). The submit button prevents double submissions.
+  const handleError = (error: unknown) => {
+    if (error instanceof HttpError && error.status === 404) {
+      setFormError(DELETED_MESSAGE)
+      return
+    }
+    if (!applyApiFieldErrors(error, TRANSACTION_FIELDS, setError)) {
+      setFormError(getApiErrorMessage(error))
+    }
+  }
+
   const onSubmit = handleSubmit((values) => {
     setFormError(null)
     setSuccessMessage(null)
 
-    mutation.mutate(values, {
+    if (transaction) {
+      updateMutation.mutate(
+        { id: transaction.id, request: values },
+        {
+          onSuccess: () => onSaved?.('Lançamento atualizado com sucesso.'),
+          onError: handleError,
+        },
+      )
+      return
+    }
+
+    createMutation.mutate(values, {
       onSuccess: () => {
         // Keep type and date: people often register several in a row.
         reset({
@@ -89,11 +161,7 @@ export function TransactionForm({
             : 'Despesa registrada com sucesso.',
         )
       },
-      onError: (error) => {
-        if (!applyApiFieldErrors(error, TRANSACTION_FIELDS, setError)) {
-          setFormError(getApiErrorMessage(error))
-        }
-      },
+      onError: handleError,
     })
   })
 
@@ -172,6 +240,11 @@ export function TransactionForm({
               {category.name}
             </option>
           ))}
+          {keptCategory && (
+            <option value={keptCategory.id}>
+              {keptCategory.name} (inativa)
+            </option>
+          )}
         </SelectField>
       )}
 
@@ -183,13 +256,31 @@ export function TransactionForm({
         {...register('description', { onChange: clearFeedback })}
       />
 
-      <button
-        type="submit"
-        disabled={mutation.isPending}
-        className="w-full rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {mutation.isPending ? 'Registrando…' : `Registrar ${typeLabels[type]}`}
-      </button>
+      <div className={isEditing ? 'flex flex-col gap-3 sm:flex-row' : ''}>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="w-full rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isEditing
+            ? updateMutation.isPending
+              ? 'Salvando…'
+              : 'Salvar alterações'
+            : createMutation.isPending
+              ? 'Registrando…'
+              : `Registrar ${typeLabels[type]}`}
+        </button>
+        {isEditing && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="w-full rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   )
 }
