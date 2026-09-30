@@ -2,13 +2,10 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './app/AppLayout'
 import { LoginPage } from './features/auth/LoginPage'
 import { RequireAuth } from './features/auth/RequireAuth'
+import { DashboardPage } from './features/dashboard/DashboardPage'
 import { ProfilePage } from './features/profile/ProfilePage'
 
 const pages = {
-  painel: {
-    title: 'Painel financeiro',
-    description: 'Resumo de saldo, receitas, despesas e faturamento anual.',
-  },
   lancamentos: {
     title: 'Lançamentos',
     description: 'Registre e acompanhe as movimentações do seu negócio.',
@@ -49,7 +46,7 @@ function App() {
         }
       >
         <Route path="/" element={<Navigate to="/painel" replace />} />
-        <Route path="/painel" element={<PlaceholderPage {...pages.painel} />} />
+        <Route path="/painel" element={<DashboardPage />} />
         <Route
           path="/lancamentos"
           element={<PlaceholderPage {...pages.lancamentos} />}
