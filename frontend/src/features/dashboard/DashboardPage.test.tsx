@@ -21,11 +21,10 @@ const saldo: BalanceSummary = {
 
 const faturamentoNormal: RevenueSummary = {
   year: 2026,
-  accumulated: 40500,
-  limit: 81000,
+  accumulatedAmount: 40500,
+  annualLimit: 81000,
+  percentage: 50,
   band: 'NORMAL',
-  proportionalLimit: false,
-  activeMonths: null,
 }
 
 function jsonResponse(status: number, body: unknown) {
@@ -107,6 +106,8 @@ describe('DashboardPage', () => {
       '50',
     )
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // The backend does not send the proportional limit fields yet (RN01).
+    expect(screen.queryByText(/Limite proporcional/)).not.toBeInTheDocument()
 
     const urls = fetchMock.mock.calls.map(([url]) => String(url))
     expect(urls).toContainEqual(
@@ -127,7 +128,8 @@ describe('DashboardPage', () => {
       revenue: () =>
         jsonResponse(200, {
           ...faturamentoNormal,
-          accumulated: 66400,
+          accumulatedAmount: 66400,
+          percentage: 81.98,
           band: 'ATTENTION',
         }),
     })
@@ -143,7 +145,8 @@ describe('DashboardPage', () => {
       revenue: () =>
         jsonResponse(200, {
           ...faturamentoNormal,
-          accumulated: 72891.9,
+          accumulatedAmount: 72891.9,
+          percentage: 89.99,
           band: 'ATTENTION',
         }),
     })
@@ -159,7 +162,8 @@ describe('DashboardPage', () => {
       revenue: () =>
         jsonResponse(200, {
           ...faturamentoNormal,
-          accumulated: 75330,
+          accumulatedAmount: 75330,
+          percentage: 93,
           band: 'CRITICAL',
         }),
     })
@@ -175,7 +179,8 @@ describe('DashboardPage', () => {
       revenue: () =>
         jsonResponse(200, {
           ...faturamentoNormal,
-          accumulated: 85000,
+          accumulatedAmount: 85000,
+          percentage: 104.94,
           band: 'EXCEEDED',
         }),
     })
@@ -195,8 +200,9 @@ describe('DashboardPage', () => {
       revenue: () =>
         jsonResponse(200, {
           ...faturamentoNormal,
-          accumulated: 0,
-          limit: 27000,
+          accumulatedAmount: 0,
+          annualLimit: 27000,
+          percentage: 0,
           proportionalLimit: true,
           activeMonths: 4,
         }),
