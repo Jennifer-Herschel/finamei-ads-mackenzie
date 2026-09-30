@@ -8,7 +8,7 @@ export function useAuthorizedFetch() {
     try {
       return await request(token)
     } catch (error) {
-      if (error instanceof HttpError && error.status === 401) signOut()
+      if (error instanceof HttpError && error.status === 401) signOut('expired')
       throw error
     }
   }

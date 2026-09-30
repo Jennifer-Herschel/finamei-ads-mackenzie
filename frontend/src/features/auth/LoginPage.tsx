@@ -27,7 +27,7 @@ function getRedirectPath(state: unknown) {
 }
 
 export function LoginPage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, sessionExpired } = useAuth()
   const location = useLocation()
   const mutation = useLoginMutation()
   const [formError, setFormError] = useState<string | null>(null)
@@ -86,6 +86,15 @@ export function LoginPage() {
         </header>
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+          {sessionExpired && (
+            <p
+              role="status"
+              className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              Sua sessão expirou por segurança. Entre novamente para continuar
+              de onde parou.
+            </p>
+          )}
           <form noValidate onSubmit={onSubmit} className="space-y-5">
             {formError && <FormAlert tone="error">{formError}</FormAlert>}
             {!formError && getRegisteredEmail(location.state) && (

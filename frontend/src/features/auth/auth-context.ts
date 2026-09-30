@@ -19,6 +19,8 @@ export type AuthSession = {
   expiresAt?: number
 }
 
+export type SignOutReason = 'expired'
+
 export type AuthContextValue = {
   token: string | null
   user: AuthUser | null
@@ -26,7 +28,10 @@ export type AuthContextValue = {
   role: Role | null
   isAuthenticated: boolean
   signIn: (session: AuthSession) => void
-  signOut: () => void
+  /** 'expired' when the session ended on its own (token expired or rejected). */
+  signOut: (reason?: SignOutReason) => void
+  /** True after the session expired, until the next sign in. */
+  sessionExpired: boolean
   /** Atualiza os dados do usuário na sessão local (ex.: após editar o perfil). */
   updateUser: (user: AuthUser) => void
 }
