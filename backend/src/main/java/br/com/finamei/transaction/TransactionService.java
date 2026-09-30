@@ -4,11 +4,15 @@ import br.com.finamei.category.Category;
 import br.com.finamei.category.CategoryRepository;
 import br.com.finamei.shared.PageResponse;
 import br.com.finamei.shared.error.FieldValidationException;
+import br.com.finamei.transaction.dto.BalanceSummaryResponse;
 import br.com.finamei.transaction.dto.CreateTransactionRequest;
 import br.com.finamei.transaction.dto.TransactionResponse;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -69,6 +73,27 @@ public class TransactionService {
                 .collect(Collectors.toMap(Category::getId, Function.identity()));
 
         return PageResponse.from(transactions, t -> TransactionResponse.from(t, categories.get(t.getCategoryId())));
+    }
+
+    /** Saldo atual e entradas e saídas do mês. Despesas reduzem o saldo, mas não o faturamento (RN04). */
+    @Transactional(readOnly = true)
+    public BalanceSummaryResponse summary(UUID userId, YearMonth month) {
+        BigDecimal totalIncome = sum(transactionRepository.sumAmountByUserAndType(userId, TransactionType.INCOME));
+        BigDecimal totalExpense = sum(transactionRepository.sumAmountByUserAndType(userId, TransactionType.EXPENSE));
+        return new BalanceSummaryResponse(
+                month,
+                totalIncome.subtract(totalExpense),
+                sumOfMonth(userId, TransactionType.INCOME, month),
+                sumOfMonth(userId, TransactionType.EXPENSE, month));
+    }
+
+    private BigDecimal sumOfMonth(UUID userId, TransactionType type, YearMonth month) {
+        return sum(transactionRepository.sumAmountByUserAndTypeAndPeriod(
+                userId, type, month.atDay(1), month.atEndOfMonth()));
+    }
+
+    private static BigDecimal sum(BigDecimal value) {
+        return Objects.requireNonNullElse(value, BigDecimal.ZERO);
     }
 
     // RN06 e RN07: a categoria precisa existir, estar ativa e ser do tipo do lançamento.
