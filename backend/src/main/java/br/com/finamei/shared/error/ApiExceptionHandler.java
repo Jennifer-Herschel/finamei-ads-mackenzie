@@ -42,6 +42,12 @@ public class ApiExceptionHandler {
 				.body(ErrorResponse.of("INVALID_CREDENTIALS", ex.getMessage()));
 	}
 
+	@ExceptionHandler(CategoryAlreadyExistsException.class)
+	public ResponseEntity<ErrorResponse> handleCategoryAlreadyExists(CategoryAlreadyExistsException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(ErrorResponse.of("CATEGORY_ALREADY_EXISTS", ex.getMessage()));
+	}
+
 	@ExceptionHandler(DasAlreadyPaidException.class)
 	public ResponseEntity<ErrorResponse> handleDasAlreadyPaid(DasAlreadyPaidException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)

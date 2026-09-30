@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import br.com.finamei.category.CategoryService;
+import br.com.finamei.category.CategoryRepository;
 import br.com.finamei.security.JwtService;
 import br.com.finamei.user.User;
 import br.com.finamei.user.UserRepository;
@@ -35,9 +37,6 @@ class ExpenseAndBalanceTest {
 
     private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
 
-    /** Categorias padrão semeadas pela migration V4. */
-    private static final String VENDA_DE_PRODUTOS = "d56eb7f3-0f0d-465b-8ba8-586faaf66bb4";
-    private static final String ALUGUEL = "b6dabeb1-c266-428f-8ef9-f3f626ca3f3b";
 
     /** "Hoje" fixo em 15/09/2026. */
     @TestBean
@@ -57,13 +56,26 @@ class ExpenseAndBalanceTest {
     private UserRepository userRepository;
 
     @Autowired
+    private CategoryService categoryService;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
     private TransactionRepository transactionRepository;
 
     private User maria;
 
+    /** Cópias das categorias padrão pertencentes à Maria. */
+    private String vendaDeProdutos;
+    private String aluguel;
+
     @BeforeEach
     void criarUsuario() {
         maria = userRepository.save(new User("Maria Silva", "maria.despesas@exemplo.com", "hash"));
+        categoryService.createDefaultCategories(maria.getId());
+        vendaDeProdutos = idDaCategoria(maria, "Venda de produtos");
+        aluguel = idDaCategoria(maria, "Aluguel");
     }
 
     @Test
@@ -108,7 +120,7 @@ class ExpenseAndBalanceTest {
         registrar("""
                 {"type": "EXPENSE", "amount": 80, "date": "2026-09-05",
                  "categoryId": "%s", "description": "Compra"}
-                """.formatted(VENDA_DE_PRODUTOS))
+                """.formatted(vendaDeProdutos))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.categoryId")
                         .value("A categoria selecionada não corresponde ao tipo do lançamento."));
@@ -116,7 +128,7 @@ class ExpenseAndBalanceTest {
 
     @Test
     void despesaNaoDeveAumentarOFaturamentoAnual() throws Exception {
-        lancar(TransactionType.INCOME, VENDA_DE_PRODUTOS, "10000.00", LocalDate.of(2026, 8, 1));
+        lancar(TransactionType.INCOME, vendaDeProdutos, "10000.00", LocalDate.of(2026, 8, 1));
         transactionRepository.flush();
 
         registrar(despesa("5000.00", "2026-09-05", "Compra de mercadorias")).andExpect(status().isCreated());
@@ -127,13 +139,13 @@ class ExpenseAndBalanceTest {
 
     @Test
     void deveResumirSaldoAtualEEntradasESaidasDoMes() throws Exception {
-        lancar(TransactionType.INCOME, VENDA_DE_PRODUTOS, "10000.00", LocalDate.of(2026, 8, 20));
-        lancar(TransactionType.EXPENSE, ALUGUEL, "1500.00", LocalDate.of(2026, 8, 25));
-        lancar(TransactionType.INCOME, VENDA_DE_PRODUTOS, "6900.00", LocalDate.of(2026, 9, 3));
-        lancar(TransactionType.EXPENSE, ALUGUEL, "2150.00", LocalDate.of(2026, 9, 10));
-        lancar(TransactionType.EXPENSE, ALUGUEL, "999.00", LocalDate.of(2026, 9, 11)).markAsDeleted();
+        lancar(TransactionType.INCOME, vendaDeProdutos, "10000.00", LocalDate.of(2026, 8, 20));
+        lancar(TransactionType.EXPENSE, aluguel, "1500.00", LocalDate.of(2026, 8, 25));
+        lancar(TransactionType.INCOME, vendaDeProdutos, "6900.00", LocalDate.of(2026, 9, 3));
+        lancar(TransactionType.EXPENSE, aluguel, "2150.00", LocalDate.of(2026, 9, 10));
+        lancar(TransactionType.EXPENSE, aluguel, "999.00", LocalDate.of(2026, 9, 11)).markAsDeleted();
         User joao = userRepository.save(new User("João Souza", "joao.saldo@exemplo.com", "hash"));
-        transactionRepository.save(new Transaction(joao.getId(), UUID.fromString(VENDA_DE_PRODUTOS),
+        transactionRepository.save(new Transaction(joao.getId(), UUID.fromString(vendaDeProdutos),
                 TransactionType.INCOME, new BigDecimal("50000.00"), LocalDate.of(2026, 9, 1), "Outro usuário"));
         transactionRepository.flush();
 
@@ -148,7 +160,7 @@ class ExpenseAndBalanceTest {
 
     @Test
     void deveMostrarSaldoNegativoQuandoAsDespesasSuperamAsReceitas() throws Exception {
-        lancar(TransactionType.EXPENSE, ALUGUEL, "300.00", LocalDate.of(2026, 9, 2));
+        lancar(TransactionType.EXPENSE, aluguel, "300.00", LocalDate.of(2026, 9, 2));
         transactionRepository.flush();
 
         mockMvc.perform(get("/api/v1/transactions/summary").param("month", "2026-09").header(HttpHeaders.AUTHORIZATION, bearer()))
@@ -174,7 +186,7 @@ class ExpenseAndBalanceTest {
     private String despesa(String valor, String data, String descricao) {
         return """
                 {"type": "EXPENSE", "amount": %s, "date": "%s", "categoryId": "%s", "description": "%s"}
-                """.formatted(valor, data, ALUGUEL, descricao);
+                """.formatted(valor, data, aluguel, descricao);
     }
 
     private Transaction lancar(TransactionType tipo, String categoria, String valor, LocalDate data) {
@@ -184,5 +196,11 @@ class ExpenseAndBalanceTest {
 
     private String bearer() {
         return "Bearer " + jwtService.generateToken(maria);
+    }
+
+    private String idDaCategoria(User usuario, String nome) {
+        return categoryRepository.findByUserIdOrderByTypeAscNameAsc(usuario.getId()).stream()
+                .filter(categoria -> categoria.getName().equals(nome))
+                .findFirst().orElseThrow().getId().toString();
     }
 }

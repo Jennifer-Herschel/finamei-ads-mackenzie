@@ -38,7 +38,7 @@ class TransactionPersistenceTest {
     @Test
     void devePersistirLancamentoComTipoExplicitoEValorDecimal() {
         User maria = userRepository.save(new User("Maria Silva", "maria.persistencia@exemplo.com", "hash"));
-        Category vendas = categoryRepository.save(new Category("Vendas no atacado", TransactionType.INCOME));
+        Category vendas = categoryRepository.save(new Category(maria.getId(), "Vendas no atacado", TransactionType.INCOME));
 
         Transaction salvo = transactionRepository.saveAndFlush(new Transaction(
                 maria.getId(), vendas.getId(), TransactionType.INCOME,
@@ -58,12 +58,14 @@ class TransactionPersistenceTest {
 
     @Test
     void devePersistirCategoriaEASuaInativacao() {
-        Category categoria = categoryRepository.saveAndFlush(new Category("Frete", TransactionType.EXPENSE));
+        User maria = userRepository.save(new User("Maria Silva", "maria.frete@exemplo.com", "hash"));
+        Category categoria = categoryRepository.saveAndFlush(new Category(maria.getId(), "Frete", TransactionType.EXPENSE));
         categoria.deactivate();
         categoryRepository.flush();
         entityManager.clear();
 
         Category lida = categoryRepository.findById(categoria.getId()).orElseThrow();
+        assertThat(lida.getUserId()).isEqualTo(maria.getId());
         assertThat(lida.getName()).isEqualTo("Frete");
         assertThat(lida.getType()).isEqualTo(TransactionType.EXPENSE);
         assertThat(lida.isActive()).isFalse();
@@ -73,7 +75,7 @@ class TransactionPersistenceTest {
     @Test
     void oBancoDeveRecusarValorNaoPositivoMesmoSemValidacaoDaAplicacao() {
         User maria = userRepository.save(new User("Maria Silva", "maria.valor.zero@exemplo.com", "hash"));
-        Category vendas = categoryRepository.save(new Category("Vendas avulsas", TransactionType.INCOME));
+        Category vendas = categoryRepository.save(new Category(maria.getId(), "Vendas avulsas", TransactionType.INCOME));
 
         assertThatThrownBy(() -> transactionRepository.saveAndFlush(new Transaction(
                 maria.getId(), vendas.getId(), TransactionType.INCOME,

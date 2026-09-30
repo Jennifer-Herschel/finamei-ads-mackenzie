@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.finamei.auth.dto.RegisterUserRequest;
+import br.com.finamei.category.CategoryService;
 import br.com.finamei.shared.error.EmailAlreadyRegisteredException;
 import br.com.finamei.user.User;
 import br.com.finamei.user.UserRepository;
@@ -27,6 +28,9 @@ class RegisterUserServiceTest {
 	@Mock
 	private PasswordEncoder passwordEncoder;
 
+	@Mock
+	private CategoryService categoryService;
+
 	@InjectMocks
 	private RegisterUserService registerUserService;
 
@@ -43,6 +47,7 @@ class RegisterUserServiceTest {
 		assertThat(usuario.getEmail()).isEqualTo("maria@exemplo.com");
 		assertThat(usuario.getPasswordHash()).isEqualTo("hash-gerado");
 		verify(userRepository).save(any(User.class));
+		verify(categoryService).createDefaultCategories(usuario.getId());
 	}
 
 	@Test
