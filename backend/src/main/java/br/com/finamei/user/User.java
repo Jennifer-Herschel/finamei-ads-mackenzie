@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -36,6 +37,9 @@ public class User {
 
 	@Column(nullable = false)
 	private boolean active;
+
+	@Column(name = "mei_opening_date")
+	private LocalDate meiOpeningDate;
 
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private OffsetDateTime createdAt;
@@ -88,6 +92,10 @@ public class User {
 
 	public boolean isActive() {
 		return active;
+	}
+
+	public LocalDate getMeiOpeningDate() {
+		return meiOpeningDate;
 	}
 
 	public OffsetDateTime getCreatedAt() {
