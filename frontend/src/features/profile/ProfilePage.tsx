@@ -69,10 +69,7 @@ export function ProfilePage() {
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
       <header>
-        <span className="text-sm font-semibold uppercase tracking-wider text-emerald-700">
-          FinaMEI
-        </span>
-        <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
+        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
           Meu perfil
         </h1>
         <p className="mt-2 text-slate-600">
@@ -99,7 +96,7 @@ export function ProfilePage() {
             profileQuery.error.status === 401 ? (
               <button
                 type="button"
-                onClick={signOut}
+                onClick={() => signOut('expired')}
                 className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
               >
                 Entrar novamente

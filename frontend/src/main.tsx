@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { DocumentTitle } from './app/DocumentTitle'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { configureZod } from './lib/zod-config'
 
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <DocumentTitle />
           <App />
         </BrowserRouter>
       </AuthProvider>

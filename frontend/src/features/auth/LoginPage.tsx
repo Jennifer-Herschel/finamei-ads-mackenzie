@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Navigate, useLocation, type Location } from 'react-router-dom'
+import { Link, Navigate, useLocation, type Location } from 'react-router-dom'
 import { FormAlert } from '../../components/FormAlert'
 import { TextField } from '../../components/TextField'
 import { getApiErrorBody, getApiErrorMessage } from '../../lib/api-error'
@@ -15,6 +15,11 @@ const INVALID_CREDENTIALS_MESSAGE = 'E-mail ou senha inválidos.'
 // The home route sends each role to its own first screen.
 const DEFAULT_REDIRECT = '/'
 
+/** E-mail of an account just created whose automatic sign-in failed. */
+function getRegisteredEmail(state: unknown) {
+  return (state as { registeredEmail?: string } | null)?.registeredEmail
+}
+
 function getRedirectPath(state: unknown) {
   const from = (state as { from?: Location } | null)?.from
   if (!from || from.pathname === '/login') return DEFAULT_REDIRECT
@@ -22,7 +27,7 @@ function getRedirectPath(state: unknown) {
 }
 
 export function LoginPage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, sessionExpired } = useAuth()
   const location = useLocation()
   const mutation = useLoginMutation()
   const [formError, setFormError] = useState<string | null>(null)
@@ -35,7 +40,10 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: {
+      email: getRegisteredEmail(location.state) ?? '',
+      password: '',
+    },
   })
 
   if (isAuthenticated) {
@@ -78,8 +86,22 @@ export function LoginPage() {
         </header>
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+          {sessionExpired && (
+            <p
+              role="status"
+              className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              Sua sessão expirou por segurança. Entre novamente para continuar
+              de onde parou.
+            </p>
+          )}
           <form noValidate onSubmit={onSubmit} className="space-y-5">
             {formError && <FormAlert tone="error">{formError}</FormAlert>}
+            {!formError && getRegisteredEmail(location.state) && (
+              <FormAlert tone="success">
+                Conta criada! Entre com seu e-mail e sua senha.
+              </FormAlert>
+            )}
 
             <TextField
               id="login-email"
@@ -111,6 +133,16 @@ export function LoginPage() {
             </button>
           </form>
         </section>
+
+        <p className="mt-6 text-center text-sm text-slate-600">
+          Ainda não tem conta?{' '}
+          <Link
+            to="/cadastro"
+            className="rounded font-semibold text-emerald-800 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+          >
+            Criar conta
+          </Link>
+        </p>
       </div>
     </main>
   )

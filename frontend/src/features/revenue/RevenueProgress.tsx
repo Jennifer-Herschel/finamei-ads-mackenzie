@@ -59,7 +59,7 @@ export function RevenueProgress({ summary }: { summary: RevenueSummary }) {
         do limite anual do MEI)
       </p>
 
-      {summary.proportionalLimit && summary.activeMonths != null && (
+      {summary.proportionalLimit && summary.activeMonths !== null && (
         <p className="mt-1 text-sm text-slate-600">
           Limite proporcional a {summary.activeMonths}{' '}
           {summary.activeMonths === 1 ? 'mês' : 'meses'} de atividade neste ano.

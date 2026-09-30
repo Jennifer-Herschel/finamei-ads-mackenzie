@@ -2,7 +2,9 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './app/AppLayout'
 import { LoginPage } from './features/auth/LoginPage'
 import { ClientReportsPage } from './features/accountant/ClientReportsPage'
+import { AccountantAccessPage } from './features/accountant-access/AccountantAccessPage'
 import { ClientsPage } from './features/accountant/ClientsPage'
+import { RegisterPage } from './features/auth/RegisterPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 import { HomeRedirect, RequireRole } from './features/auth/role-routes'
 import { CategoriesPage } from './features/category/CategoriesPage'
@@ -20,6 +22,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/cadastro" element={<RegisterPage />} />
       <Route
         element={
           <RequireAuth>
@@ -40,6 +43,7 @@ function App() {
           <Route path="/das" element={<DasPage />} />
           <Route path="/relatorios" element={<ReportsPage />} />
           <Route path="/categorias" element={<CategoriesPage />} />
+          <Route path="/contador" element={<AccountantAccessPage />} />
         </Route>
         <Route
           element={

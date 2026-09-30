@@ -11,6 +11,7 @@ import {
   type AuthContextValue,
   type AuthSession,
   type AuthUser,
+  type SignOutReason,
 } from './auth-context'
 import { getTokenRole } from './token-claims'
 
@@ -60,8 +61,22 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
     setSession(next)
   }, [])
 
-  const signIn = useCallback((next: AuthSession) => persist(next), [persist])
-  const signOut = useCallback(() => persist(null), [persist])
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  const signIn = useCallback(
+    (next: AuthSession) => {
+      setSessionExpired(false)
+      persist(next)
+    },
+    [persist],
+  )
+  const signOut = useCallback(
+    (reason?: SignOutReason) => {
+      setSessionExpired(reason === 'expired')
+      persist(null)
+    },
+    [persist],
+  )
 
   const updateUser = useCallback((user: AuthUser) => {
     setSession((current) => {
@@ -79,7 +94,7 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
     const delay = session.expiresAt - Date.now()
     // setTimeout overflows above ~24.8 days and would fire immediately.
     if (delay > MAX_TIMEOUT_MS) return
-    const timeout = setTimeout(signOut, delay)
+    const timeout = setTimeout(() => signOut('expired'), delay)
     return () => clearTimeout(timeout)
   }, [session?.expiresAt, signOut])
 
@@ -93,9 +108,10 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
       isAuthenticated: Boolean(session?.token),
       signIn,
       signOut,
+      sessionExpired,
       updateUser,
     }),
-    [session, signIn, signOut, updateUser],
+    [session, sessionExpired, signIn, signOut, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
