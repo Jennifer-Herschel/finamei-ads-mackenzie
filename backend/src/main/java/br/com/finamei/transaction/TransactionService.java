@@ -4,8 +4,9 @@ import br.com.finamei.category.Category;
 import br.com.finamei.category.CategoryRepository;
 import br.com.finamei.shared.PageResponse;
 import br.com.finamei.shared.error.FieldValidationException;
+import br.com.finamei.shared.error.ResourceNotFoundException;
 import br.com.finamei.transaction.dto.BalanceSummaryResponse;
-import br.com.finamei.transaction.dto.CreateTransactionRequest;
+import br.com.finamei.transaction.dto.TransactionRequest;
 import br.com.finamei.transaction.dto.TransactionResponse;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -47,11 +48,9 @@ public class TransactionService {
 
     /** O userId vem da identidade autenticada; o cliente nunca informa o dono do lançamento. */
     @Transactional
-    public TransactionResponse create(UUID userId, CreateTransactionRequest request) {
-        if (request.date().isAfter(LocalDate.now(clock))) {
-            throw new FieldValidationException("date", "A data não pode ser futura.");
-        }
-        Category category = validCategoryFor(userId, request);
+    public TransactionResponse create(UUID userId, TransactionRequest request) {
+        validateDate(request);
+        Category category = validCategoryFor(userId, request, null);
 
         Transaction transaction = transactionRepository.save(new Transaction(
                 userId,
@@ -63,10 +62,39 @@ public class TransactionService {
         return TransactionResponse.from(transaction, category);
     }
 
+    /**
+     * Edição (OF06, OF08) com as mesmas regras do cadastro. O lançamento pode manter
+     * a categoria atual mesmo que ela tenha sido inativada depois (RN07).
+     */
+    @Transactional
+    public TransactionResponse update(UUID userId, UUID transactionId, TransactionRequest request) {
+        Transaction transaction = findActiveOwned(userId, transactionId);
+        validateDate(request);
+        Category category = validCategoryFor(userId, request, transaction.getCategoryId());
+
+        transaction.update(
+                category.getId(),
+                request.type(),
+                request.amount(),
+                request.date(),
+                request.description().trim());
+        return TransactionResponse.from(transaction, category);
+    }
+
+    /** Exclusão lógica (RN08): o lançamento sai da lista, do saldo e do faturamento. */
+    @Transactional
+    public void delete(UUID userId, UUID transactionId) {
+        findActiveOwned(userId, transactionId).markAsDeleted();
+    }
+
     @Transactional(readOnly = true)
-    public PageResponse<TransactionResponse> list(UUID userId, int page, int size) {
+    public PageResponse<TransactionResponse> list(UUID userId, int page, int size, TransactionFilter filter) {
+        if (filter.from() != null && filter.to() != null && filter.to().isBefore(filter.from())) {
+            throw new FieldValidationException("to", "A data final deve ser igual ou posterior à data inicial.");
+        }
         PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE), NEWEST_FIRST);
-        Page<Transaction> transactions = transactionRepository.findByUserIdAndDeletedFalse(userId, pageRequest);
+        Page<Transaction> transactions = transactionRepository.findAll(
+                TransactionSpecifications.activeOfUser(userId, filter), pageRequest);
 
         Set<UUID> categoryIds = transactions.stream().map(Transaction::getCategoryId).collect(Collectors.toSet());
         Map<UUID, Category> categories = categoryRepository.findAllById(categoryIds).stream()
@@ -96,18 +124,31 @@ public class TransactionService {
         return Objects.requireNonNullElse(value, BigDecimal.ZERO);
     }
 
-    // RN06 e RN07: a categoria precisa ser do usuário, estar ativa e ser do tipo do lançamento.
+    // Lançamento de outro usuário ou já excluído responde 404 (ONF05, UC 4c).
+    private Transaction findActiveOwned(UUID userId, UUID transactionId) {
+        return transactionRepository.findByIdAndUserIdAndDeletedFalse(transactionId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lançamento não encontrado."));
+    }
+
+    private void validateDate(TransactionRequest request) {
+        if (request.date().isAfter(LocalDate.now(clock))) {
+            throw new FieldValidationException("date", "A data não pode ser futura.");
+        }
+    }
+
+    // RN06 e RN07: a categoria precisa ser do usuário, do tipo do lançamento e estar ativa;
+    // a categoria que o lançamento já usa é aceita mesmo inativa (currentCategoryId).
     // Categoria de outro usuário é tratada como inexistente (ONF05).
-    private Category validCategoryFor(UUID userId, CreateTransactionRequest request) {
+    private Category validCategoryFor(UUID userId, TransactionRequest request, UUID currentCategoryId) {
         Category category = categoryRepository.findByIdAndUserId(request.categoryId(), userId)
                 .orElseThrow(() -> new FieldValidationException("categoryId", "Selecione uma categoria válida."));
-        if (!category.isActive()) {
-            throw new FieldValidationException(
-                    "categoryId", "A categoria selecionada está inativa. Escolha outra categoria.");
-        }
-        if (!category.acceptsNewTransactionOf(request.type())) {
+        if (category.getType() != request.type()) {
             throw new FieldValidationException(
                     "categoryId", "A categoria selecionada não corresponde ao tipo do lançamento.");
+        }
+        if (!category.isActive() && !category.getId().equals(currentCategoryId)) {
+            throw new FieldValidationException(
+                    "categoryId", "A categoria selecionada está inativa. Escolha outra categoria.");
         }
         return category;
     }

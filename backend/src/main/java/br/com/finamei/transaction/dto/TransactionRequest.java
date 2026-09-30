@@ -11,10 +11,10 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Registro de receita (OF05) ou despesa (OF07), com as regras da RN06. A data
+ * Cadastro ou edição de receita (OF05, OF06) ou despesa (OF07, OF08), com as regras da RN06. A data
  * não futura e a categoria ativa são validadas no serviço.
  */
-public record CreateTransactionRequest(
+public record TransactionRequest(
 
         @NotNull(message = "Informe se é uma receita ou uma despesa.")
         TransactionType type,
