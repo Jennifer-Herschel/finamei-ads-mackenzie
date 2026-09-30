@@ -13,7 +13,7 @@ export const profileQueryKey = ['profile', 'me'] as const
 function useSignOutOnUnauthorized() {
   const { signOut } = useAuth()
   return (error: unknown) => {
-    if (error instanceof HttpError && error.status === 401) signOut()
+    if (error instanceof HttpError && error.status === 401) signOut('expired')
   }
 }
 

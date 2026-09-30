@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../features/auth/useAuth'
 
 const meiNavItems = [
@@ -24,6 +25,22 @@ export function AppLayout() {
   const { user, role, signOut } = useAuth()
   const navItems = role === 'ACCOUNTANT' ? accountantNavItems : meiNavItems
   const queryClient = useQueryClient()
+  const { pathname } = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const previousPath = useRef(pathname)
+
+  // After moving to another screen, close the mobile menu and move the focus to
+  // the new page title, so keyboard and screen reader users know it changed.
+  useEffect(() => {
+    if (previousPath.current === pathname) return
+    previousPath.current = pathname
+    setMenuOpen(false)
+    const title = document.querySelector<HTMLElement>('#conteudo h1')
+    if (title) {
+      title.tabIndex = -1
+      title.focus()
+    }
+  }, [pathname])
 
   const handleSignOut = () => {
     // Drop cached data so the next user never sees the previous one's data.
@@ -33,6 +50,12 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen">
+      <a
+        href="#conteudo"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-emerald-700 focus:px-4 focus:py-3 focus:font-semibold focus:text-white focus:shadow-lg focus:outline-2 focus:outline-offset-2 focus:outline-emerald-900"
+      >
+        Pular para o conteúdo
+      </a>
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
           <Link
@@ -50,6 +73,15 @@ export function AppLayout() {
             )}
             <button
               type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-expanded={menuOpen}
+              aria-controls="menu-principal"
+              className={`rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 sm:hidden ${focusRing}`}
+            >
+              Menu
+            </button>
+            <button
+              type="button"
               onClick={handleSignOut}
               className={`rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 ${focusRing}`}
             >
@@ -57,7 +89,12 @@ export function AppLayout() {
             </button>
           </div>
 
-          <nav aria-label="Navegação principal" className="w-full">
+          {/* On small screens the menu opens with the "Menu" button. */}
+          <nav
+            id="menu-principal"
+            aria-label="Navegação principal"
+            className={`w-full sm:block ${menuOpen ? 'block' : 'hidden'}`}
+          >
             <ul className="-mx-1 flex flex-wrap gap-1 pb-1">
               {navItems.map((item) => (
                 <li key={item.to}>
@@ -80,7 +117,9 @@ export function AppLayout() {
         </div>
       </header>
 
-      <Outlet />
+      <div id="conteudo" tabIndex={-1} className="outline-none">
+        <Outlet />
+      </div>
     </div>
   )
 }
