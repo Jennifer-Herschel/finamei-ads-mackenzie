@@ -5,6 +5,7 @@ import { ClientReportsPage } from './features/accountant/ClientReportsPage'
 import { ClientsPage } from './features/accountant/ClientsPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 import { HomeRedirect, RequireRole } from './features/auth/role-routes'
+import { CategoriesPage } from './features/category/CategoriesPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { ProfilePage } from './features/profile/ProfilePage'
 import { ReportsPage } from './features/report/ReportsPage'
@@ -62,6 +63,7 @@ function App() {
           <Route path="/lancamentos" element={<TransactionsPage />} />
           <Route path="/das" element={<PlaceholderPage {...pages.das} />} />
           <Route path="/relatorios" element={<ReportsPage />} />
+          <Route path="/categorias" element={<CategoriesPage />} />
         </Route>
         <Route
           element={
