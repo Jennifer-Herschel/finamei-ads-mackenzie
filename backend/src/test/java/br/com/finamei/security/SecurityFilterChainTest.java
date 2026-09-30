@@ -86,6 +86,17 @@ class SecurityFilterChainTest {
 	}
 
 	@Test
+	void devePermitirPreflightCorsDoFrontendPublicadoNaVercel() throws Exception {
+		mockMvc.perform(options("/api/v1/auth/login")
+						.header(HttpHeaders.ORIGIN, "https://finamei-ads-mackenzie.vercel.app")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Content-Type"))
+				.andExpect(status().isOk())
+				.andExpect(header().string(
+						HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://finamei-ads-mackenzie.vercel.app"));
+	}
+
+	@Test
 	void deveRejeitarPreflightCorsDeOrigemNaoPermitida() throws Exception {
 		mockMvc.perform(options("/api/v1/auth/login")
 						.header(HttpHeaders.ORIGIN, "http://origem-desconhecida.com")
