@@ -31,7 +31,7 @@ function getAlertMessage(
 }
 
 export function RevenueProgress({ summary }: { summary: RevenueSummary }) {
-  const { accumulatedAmount: accumulated, annualLimit: limit, band } = summary
+  const { accumulated, limit, band } = summary
   // Floor so the number shown never looks like the next band (89.99% -> 89%).
   const percentage = limit > 0 ? Math.floor((accumulated / limit) * 100) : 0
   const remaining = Math.max(limit - accumulated, 0)
