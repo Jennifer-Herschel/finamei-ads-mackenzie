@@ -37,4 +37,6 @@ finamei:
     annual-limit: 81000.00
     attention-percent: 80
     critical-percent: 90
-    
+  das:
+    # Valor mensal da guia DAS do MEI; atualizar quando o valor oficial mudar.
+    monthly-amount: ${DAS_MONTHLY_AMOUNT:76.90}
