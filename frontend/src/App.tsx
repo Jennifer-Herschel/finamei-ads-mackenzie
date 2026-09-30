@@ -3,6 +3,7 @@ import { AppLayout } from './app/AppLayout'
 import { LoginPage } from './features/auth/LoginPage'
 import { ClientReportsPage } from './features/accountant/ClientReportsPage'
 import { ClientsPage } from './features/accountant/ClientsPage'
+import { RegisterPage } from './features/auth/RegisterPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 import { HomeRedirect, RequireRole } from './features/auth/role-routes'
 import { CategoriesPage } from './features/category/CategoriesPage'
@@ -20,6 +21,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/cadastro" element={<RegisterPage />} />
       <Route
         element={
           <RequireAuth>
