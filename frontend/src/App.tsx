@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './app/AppLayout'
 import { LoginPage } from './features/auth/LoginPage'
 import { ClientReportsPage } from './features/accountant/ClientReportsPage'
+import { AccountantAccessPage } from './features/accountant-access/AccountantAccessPage'
 import { ClientsPage } from './features/accountant/ClientsPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 import { HomeRedirect, RequireRole } from './features/auth/role-routes'
@@ -62,6 +63,7 @@ function App() {
           <Route path="/lancamentos" element={<TransactionsPage />} />
           <Route path="/das" element={<PlaceholderPage {...pages.das} />} />
           <Route path="/relatorios" element={<ReportsPage />} />
+          <Route path="/contador" element={<AccountantAccessPage />} />
         </Route>
         <Route
           element={
