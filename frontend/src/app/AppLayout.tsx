@@ -9,6 +9,7 @@ const meiNavItems = [
   { to: '/das', label: 'DAS' },
   { to: '/relatorios', label: 'Relatórios' },
   { to: '/categorias', label: 'Categorias' },
+  { to: '/contador', label: 'Contador' },
   { to: '/perfil', label: 'Meu perfil' },
 ]
 
