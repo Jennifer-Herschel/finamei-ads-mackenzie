@@ -1,4 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { RequireAuth } from './features/auth/RequireAuth'
+import { ProfilePage } from './features/profile/ProfilePage'
 
 const pages = {
   login: {
@@ -49,6 +51,14 @@ function App() {
         element={<PlaceholderPage {...pages.lancamentos} />}
       />
       <Route path="/das" element={<PlaceholderPage {...pages.das} />} />
+      <Route
+        path="/perfil"
+        element={
+          <RequireAuth>
+            <ProfilePage />
+          </RequireAuth>
+        }
+      />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )
