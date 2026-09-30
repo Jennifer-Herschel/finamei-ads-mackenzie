@@ -1,7 +1,13 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { SectionError } from '../../components/SectionError'
 import { getApiErrorBody } from '../../lib/api-error'
-import type { ExportFormat, ReportFilters, ReportPeriod } from './report-api'
+import { HttpError } from '../../lib/http'
+import {
+  OWN_REPORTS_PATH,
+  type ExportFormat,
+  type ReportFilters,
+  type ReportPeriod,
+} from './report-api'
 import { ReportSummary } from './ReportSummary'
 import { useExportReportMutation, useReportQuery } from './useReports'
 
@@ -32,20 +38,38 @@ function describePeriod({ period, year, month }: ReportFilters) {
     : `Relatório anual de ${year}`
 }
 
-type ReportsPageProps = {
-  /** Reference date; defaults to now. Useful in tests. */
-  today?: Date
+function isAccessLost(error: unknown) {
+  return (
+    error instanceof HttpError && (error.status === 403 || error.status === 404)
+  )
 }
 
-export function ReportsPage({ today = new Date() }: ReportsPageProps) {
+type ReportExplorerProps = {
+  /** API path of the reports being consulted (own or a client's). */
+  basePath: string
+  /** Reference date; defaults to now. Useful in tests. */
+  today?: Date
+  /**
+   * Shown instead of the report when the backend denies access (403/404),
+   * e.g. when a client revokes the accountant's access (RN11).
+   */
+  accessLost?: ReactNode
+}
+
+/** Period filters, consolidated report and export (OF15, OF16). Read-only. */
+export function ReportExplorer({
+  basePath,
+  today = new Date(),
+  accessLost,
+}: ReportExplorerProps) {
   const currentYear = today.getFullYear()
   const [filters, setFilters] = useState<ReportFilters>({
     period: 'MONTHLY',
     year: currentYear,
     month: today.getMonth() + 1,
   })
-  const reportQuery = useReportQuery(filters)
-  const exportMutation = useExportReportMutation()
+  const reportQuery = useReportQuery(basePath, filters)
+  const exportMutation = useExportReportMutation(basePath)
 
   const years = Array.from(
     { length: YEARS_AVAILABLE },
@@ -65,17 +89,15 @@ export function ReportsPage({ today = new Date() }: ReportsPageProps) {
     ? exportMutation.variables?.format
     : undefined
 
-  return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-          Relatórios
-        </h1>
-        <p className="mt-1 text-slate-600">
-          Consulte receitas, despesas, saldo e faturamento por mês ou por ano.
-        </p>
-      </header>
+  if (
+    accessLost &&
+    (isAccessLost(reportQuery.error) || isAccessLost(exportMutation.error))
+  ) {
+    return <div className="mt-6">{accessLost}</div>
+  }
 
+  return (
+    <>
       <form
         aria-label="Filtros do relatório"
         onSubmit={(event) => event.preventDefault()}
@@ -219,6 +241,28 @@ export function ReportsPage({ today = new Date() }: ReportsPageProps) {
           </div>
         )}
       </section>
+    </>
+  )
+}
+
+type ReportsPageProps = {
+  /** Reference date; defaults to now. Useful in tests. */
+  today?: Date
+}
+
+export function ReportsPage({ today }: ReportsPageProps) {
+  return (
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+      <header>
+        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+          Relatórios
+        </h1>
+        <p className="mt-1 text-slate-600">
+          Consulte receitas, despesas, saldo e faturamento por mês ou por ano.
+        </p>
+      </header>
+
+      <ReportExplorer basePath={OWN_REPORTS_PATH} today={today} />
     </main>
   )
 }

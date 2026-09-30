@@ -9,7 +9,8 @@ import { useAuth } from './useAuth'
 import { useLoginMutation } from './useLogin'
 
 const INVALID_CREDENTIALS_MESSAGE = 'E-mail ou senha inválidos.'
-const DEFAULT_REDIRECT = '/painel'
+// The home route sends each role to its own first screen.
+const DEFAULT_REDIRECT = '/'
 
 const inputBase =
   'mt-1 block w-full rounded-lg border px-3 py-2 text-slate-900 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:bg-slate-100'

@@ -19,19 +19,19 @@ function defaultFilename(filters: ReportFilters, format: ExportFormat) {
   return `relatorio-finamei-${period}.${extensions[format]}`
 }
 
-export function useReportQuery(filters: ReportFilters) {
+export function useReportQuery(basePath: string, filters: ReportFilters) {
   const { token } = useAuth()
   const authorizedFetch = useAuthorizedFetch()
   return useQuery({
-    queryKey: ['reports', filters],
-    queryFn: () => authorizedFetch((t) => fetchReport(t, filters)),
+    queryKey: ['reports', basePath, filters],
+    queryFn: () => authorizedFetch((t) => fetchReport(t, basePath, filters)),
     enabled: Boolean(token),
     // Keep the current report on screen while another period loads.
     placeholderData: keepPreviousData,
   })
 }
 
-export function useExportReportMutation() {
+export function useExportReportMutation(basePath: string) {
   const authorizedFetch = useAuthorizedFetch()
   return useMutation({
     mutationFn: async ({
@@ -42,7 +42,7 @@ export function useExportReportMutation() {
       format: ExportFormat
     }) => {
       const file = await authorizedFetch((t) =>
-        downloadReport(t, filters, format),
+        downloadReport(t, basePath, filters, format),
       )
       saveFile(file.blob, file.filename ?? defaultFilename(filters, format))
     },
