@@ -1,6 +1,8 @@
 package br.com.finamei.security;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -71,6 +73,25 @@ class SecurityFilterChainTest {
 		// requisição passou pela camada de seguranca sem ser barrada com 401/403.
 		mockMvc.perform(get("/api/v1/auth/login"))
 				.andExpect(status().isMethodNotAllowed());
+	}
+
+	@Test
+	void devePermitirPreflightCorsDoFrontendLocal() throws Exception {
+		mockMvc.perform(options("/api/v1/auth/login")
+						.header(HttpHeaders.ORIGIN, "http://localhost:5173")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Content-Type"))
+				.andExpect(status().isOk())
+				.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"));
+	}
+
+	@Test
+	void deveRejeitarPreflightCorsDeOrigemNaoPermitida() throws Exception {
+		mockMvc.perform(options("/api/v1/auth/login")
+						.header(HttpHeaders.ORIGIN, "http://origem-desconhecida.com")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+				.andExpect(status().isForbidden())
+				.andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
 	}
 
 	private User criarUsuario() throws Exception {
