@@ -1,15 +1,34 @@
 import { useState } from 'react'
 import { SectionError } from '../../components/SectionError'
-import { formatCurrency, formatDate } from '../../lib/format'
+import {
+  EMPTY_FILTERS,
+  type Transaction,
+  type TransactionFilters,
+} from './transaction-api'
+import { TransactionItem } from './TransactionItem'
 import { useTransactionsQuery } from './useTransactions'
 
 const pageButton =
   'rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50'
 
-/** Simple list of the MEI's transactions, newest first (no filters yet). */
-export function TransactionList() {
+type TransactionListProps = {
+  filters?: TransactionFilters
+  editingId?: string | null
+  onEdit?: (transaction: Transaction) => void
+  onDeleted?: (transactionId: string) => void
+}
+
+/** The MEI's transactions, newest first, with edit and delete (OF06, OF08, OF09). */
+export function TransactionList({
+  filters = EMPTY_FILTERS,
+  editingId = null,
+  onEdit,
+  onDeleted,
+}: TransactionListProps) {
   const [page, setPage] = useState(0)
-  const query = useTransactionsQuery(page)
+  const [message, setMessage] = useState<string | null>(null)
+  const query = useTransactionsQuery(page, filters)
+  const isFiltered = Object.values(filters).some((value) => value.trim())
 
   if (query.isPending) {
     return (
@@ -32,50 +51,47 @@ export function TransactionList() {
 
   const { content, number, totalPages } = query.data
 
+  const feedback = message && (
+    <p role="status" className="mt-3 text-sm text-emerald-800">
+      {message}
+    </p>
+  )
+
   if (content.length === 0) {
     return (
-      <p className="mt-3 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
-        Nenhum lançamento registrado ainda. Use o formulário para registrar sua
-        primeira receita ou despesa.
-      </p>
+      <>
+        {feedback}
+        <p className="mt-3 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
+          {isFiltered
+            ? 'Nenhum lançamento encontrado com esses filtros.'
+            : 'Nenhum lançamento registrado ainda. Use o formulário para registrar sua primeira receita ou despesa.'}
+        </p>
+      </>
     )
   }
 
   return (
     <div className={query.isPlaceholderData ? 'opacity-60' : undefined}>
+      {feedback}
       <ul
         aria-label="Lista de movimentações"
         className="mt-2 divide-y divide-slate-200"
       >
-        {content.map((transaction) => {
-          const isIncome = transaction.type === 'INCOME'
-          return (
-            <li
-              key={transaction.id}
-              className="flex items-start justify-between gap-3 py-3"
-            >
-              <div className="min-w-0">
-                <p className="break-words font-medium text-slate-900">
-                  {transaction.description}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {transaction.category.name} · {formatDate(transaction.date)}
-                </p>
-              </div>
-              <p
-                className={`shrink-0 font-semibold ${
-                  isIncome ? 'text-emerald-700' : 'text-red-700'
-                }`}
-              >
-                <span className="sr-only">
-                  {isIncome ? 'Receita: ' : 'Despesa: '}
-                </span>
-                <span aria-hidden="true">{isIncome ? '+ ' : '− '}</span>
-                {formatCurrency(transaction.amount)}
-              </p>
-            </li>
-          )
-        })}
+        {content.map((transaction) => (
+          <TransactionItem
+            key={transaction.id}
+            transaction={transaction}
+            isEditing={transaction.id === editingId}
+            onEdit={() => {
+              setMessage(null)
+              onEdit?.(transaction)
+            }}
+            onDeleted={(text) => {
+              setMessage(text)
+              onDeleted?.(transaction.id)
+            }}
+          />
+        ))}
       </ul>
 
       {totalPages > 1 && (

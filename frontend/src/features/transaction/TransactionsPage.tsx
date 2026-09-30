@@ -1,6 +1,13 @@
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toIsoDate } from '../../lib/format'
-import type { TransactionType } from './transaction-api'
+import {
+  EMPTY_FILTERS,
+  type Transaction,
+  type TransactionFilters,
+  type TransactionType,
+} from './transaction-api'
+import { TransactionFiltersForm } from './TransactionFiltersForm'
 import { TransactionForm } from './TransactionForm'
 import { TransactionList } from './TransactionList'
 
@@ -16,6 +23,9 @@ export function TransactionsPage({
   const [searchParams] = useSearchParams()
   const initialType: TransactionType =
     searchParams.get('tipo') === 'despesa' ? 'EXPENSE' : 'INCOME'
+  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS)
+  const [editing, setEditing] = useState<Transaction | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
@@ -29,22 +39,45 @@ export function TransactionsPage({
         </p>
       </header>
 
+      {notice && (
+        <p
+          role="status"
+          className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          {notice}
+        </p>
+      )}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
         <section
-          aria-labelledby="new-transaction-title"
+          aria-labelledby="transaction-form-title"
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-2 lg:self-start"
         >
           <h2
-            id="new-transaction-title"
+            id="transaction-form-title"
             className="text-lg font-semibold text-slate-900"
           >
-            Novo lançamento
+            {editing ? 'Editar lançamento' : 'Novo lançamento'}
           </h2>
-          <TransactionForm
-            key={initialType}
-            todayIso={toIsoDate(today)}
-            initialType={initialType}
-          />
+          {editing ? (
+            <TransactionForm
+              key={editing.id}
+              todayIso={toIsoDate(today)}
+              initialType={editing.type}
+              transaction={editing}
+              onSaved={(message) => {
+                setEditing(null)
+                setNotice(message)
+              }}
+              onCancel={() => setEditing(null)}
+            />
+          ) : (
+            <TransactionForm
+              key={initialType}
+              todayIso={toIsoDate(today)}
+              initialType={initialType}
+            />
+          )}
         </section>
 
         <section
@@ -57,7 +90,20 @@ export function TransactionsPage({
           >
             Movimentações
           </h2>
-          <TransactionList />
+          <TransactionFiltersForm filters={filters} onApply={setFilters} />
+          <TransactionList
+            // New filters start again from the first page.
+            key={JSON.stringify(filters)}
+            filters={filters}
+            editingId={editing?.id ?? null}
+            onEdit={(transaction) => {
+              setNotice(null)
+              setEditing(transaction)
+            }}
+            onDeleted={(transactionId) => {
+              if (editing?.id === transactionId) setEditing(null)
+            }}
+          />
         </section>
       </div>
     </main>
