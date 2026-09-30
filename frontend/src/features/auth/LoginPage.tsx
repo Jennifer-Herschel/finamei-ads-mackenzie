@@ -2,7 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate, useLocation, type Location } from 'react-router-dom'
+import { FormAlert } from '../../components/FormAlert'
+import { TextField } from '../../components/TextField'
 import { getApiErrorBody, getApiErrorMessage } from '../../lib/api-error'
+import { applyApiFieldErrors } from '../../lib/form-errors'
 import { HttpError } from '../../lib/http'
 import { LOGIN_FIELDS, loginSchema, type LoginFormValues } from './login-schema'
 import { useAuth } from './useAuth'
@@ -11,13 +14,6 @@ import { useLoginMutation } from './useLogin'
 const INVALID_CREDENTIALS_MESSAGE = 'E-mail ou senha inválidos.'
 // The home route sends each role to its own first screen.
 const DEFAULT_REDIRECT = '/'
-
-const inputBase =
-  'mt-1 block w-full rounded-lg border px-3 py-2 text-slate-900 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:bg-slate-100'
-
-function isLoginField(field: string): field is keyof LoginFormValues {
-  return (LOGIN_FIELDS as readonly string[]).includes(field)
-}
 
 function getRedirectPath(state: unknown) {
   const from = (state as { from?: Location } | null)?.from
@@ -59,17 +55,9 @@ export function LoginPage() {
           return
         }
 
-        let mappedFieldError = false
-        for (const [field, message] of Object.entries(
-          getApiErrorBody(error)?.fieldErrors ?? {},
-        )) {
-          if (isLoginField(field)) {
-            setError(field, { message }, { shouldFocus: !mappedFieldError })
-            mappedFieldError = true
-          }
+        if (!applyApiFieldErrors(error, LOGIN_FIELDS, setError)) {
+          setFormError(getApiErrorMessage(error))
         }
-
-        if (!mappedFieldError) setFormError(getApiErrorMessage(error))
       },
     })
   })
@@ -91,70 +79,28 @@ export function LoginPage() {
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <form noValidate onSubmit={onSubmit} className="space-y-5">
-            {formError && (
-              <p
-                role="alert"
-                className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800"
-              >
-                {formError}
-              </p>
-            )}
+            {formError && <FormAlert tone="error">{formError}</FormAlert>}
 
-            <div>
-              <label
-                htmlFor="login-email"
-                className="block text-sm font-medium text-slate-800"
-              >
-                E-mail
-              </label>
-              <input
-                id="login-email"
-                type="email"
-                autoComplete="email"
-                autoFocus
-                aria-invalid={errors.email ? 'true' : 'false'}
-                aria-describedby={
-                  errors.email ? 'login-email-error' : undefined
-                }
-                className={`${inputBase} ${errors.email ? 'border-red-600' : 'border-slate-300'}`}
-                disabled={mutation.isPending}
-                {...register('email')}
-              />
-              {errors.email && (
-                <p id="login-email-error" className="mt-1 text-sm text-red-700">
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
+            <TextField
+              id="login-email"
+              label="E-mail"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              error={errors.email?.message}
+              disabled={mutation.isPending}
+              {...register('email')}
+            />
 
-            <div>
-              <label
-                htmlFor="login-password"
-                className="block text-sm font-medium text-slate-800"
-              >
-                Senha
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                aria-invalid={errors.password ? 'true' : 'false'}
-                aria-describedby={
-                  errors.password ? 'login-password-error' : undefined
-                }
-                className={`${inputBase} ${errors.password ? 'border-red-600' : 'border-slate-300'}`}
-                disabled={mutation.isPending}
-                {...register('password')}
-              />
-              {errors.password && (
-                <p
-                  id="login-password-error"
-                  className="mt-1 text-sm text-red-700"
-                >
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
+            <TextField
+              id="login-password"
+              label="Senha"
+              type="password"
+              autoComplete="current-password"
+              error={errors.password?.message}
+              disabled={mutation.isPending}
+              {...register('password')}
+            />
 
             <button
               type="submit"
