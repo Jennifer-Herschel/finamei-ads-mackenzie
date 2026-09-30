@@ -82,6 +82,20 @@ public class Transaction {
         this.updatedAt = Instant.now();
     }
 
+    /** Edição de um lançamento já registrado (OF06, OF08); o dono não muda. */
+    public void update(
+            UUID categoryId,
+            TransactionType type,
+            BigDecimal amount,
+            LocalDate transactionDate,
+            String description) {
+        this.categoryId = categoryId;
+        this.type = type;
+        this.amount = amount;
+        this.transactionDate = transactionDate;
+        this.description = description;
+    }
+
     /** Exclusão lógica (RN08). */
     public void markAsDeleted() {
         this.deleted = true;
