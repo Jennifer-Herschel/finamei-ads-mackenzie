@@ -31,7 +31,7 @@ function getAlertMessage(
 }
 
 export function RevenueProgress({ summary }: { summary: RevenueSummary }) {
-  const { accumulatedAmount: accumulated, annualLimit: limit, band } = summary
+  const { accumulated, limit, band } = summary
   // Floor so the number shown never looks like the next band (89.99% -> 89%).
   const percentage = limit > 0 ? Math.floor((accumulated / limit) * 100) : 0
   const remaining = Math.max(limit - accumulated, 0)
@@ -59,7 +59,7 @@ export function RevenueProgress({ summary }: { summary: RevenueSummary }) {
         do limite anual do MEI)
       </p>
 
-      {summary.proportionalLimit && summary.activeMonths != null && (
+      {summary.proportionalLimit && summary.activeMonths !== null && (
         <p className="mt-1 text-sm text-slate-600">
           Limite proporcional a {summary.activeMonths}{' '}
           {summary.activeMonths === 1 ? 'mês' : 'meses'} de atividade neste ano.
