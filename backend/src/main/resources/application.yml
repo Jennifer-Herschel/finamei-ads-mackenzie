@@ -31,3 +31,10 @@ management:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+finamei:
+  revenue:
+    annual-limit: 81000.00
+    attention-percent: 80
+    critical-percent: 90
+    
