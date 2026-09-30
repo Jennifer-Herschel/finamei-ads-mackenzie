@@ -71,6 +71,11 @@ public class DasGuide {
 		this.paidAt = paymentDate;
 	}
 
+	/** Volta a guia para pendente quando o pagamento foi lançado por engano (UC "Controlar DAS", 3a). */
+	public void markAsUnpaid() {
+		this.paidAt = null;
+	}
+
 	public boolean isPaid() {
 		return paidAt != null;
 	}

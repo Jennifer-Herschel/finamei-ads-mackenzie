@@ -45,3 +45,16 @@ export function payDasGuide(
     body: JSON.stringify(request),
   })
 }
+
+/**
+ * DELETE /das/{id}/payment -> 200 DasGuide back to pending, for a payment
+ * registered by mistake (UC "Controlar DAS", 3a)
+ *   404 when the guide belongs to another user
+ *   409 DAS_NOT_PAID
+ */
+export function undoDasPayment(token: string | null, id: string) {
+  return apiFetch<DasGuide>(`/das/${encodeURIComponent(id)}/payment`, {
+    token,
+    method: 'DELETE',
+  })
+}

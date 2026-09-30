@@ -4,6 +4,7 @@ import { useAuthorizedFetch } from '../auth/useAuthorizedFetch'
 import {
   fetchDasGuides,
   payDasGuide,
+  undoDasPayment,
   type DasGuide,
   type PayDasRequest,
 } from './das-api'
@@ -29,6 +30,19 @@ export function usePayDasMutation(year: number) {
     onSuccess: (paid) => {
       queryClient.setQueryData<DasGuide[]>(dasQueryKey(year), (guides) =>
         guides?.map((guide) => (guide.id === paid.id ? paid : guide)),
+      )
+    },
+  })
+}
+
+export function useUndoDasPaymentMutation(year: number) {
+  const authorizedFetch = useAuthorizedFetch()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => authorizedFetch((t) => undoDasPayment(t, id)),
+    onSuccess: (pending) => {
+      queryClient.setQueryData<DasGuide[]>(dasQueryKey(year), (guides) =>
+        guides?.map((guide) => (guide.id === pending.id ? pending : guide)),
       )
     },
   })
