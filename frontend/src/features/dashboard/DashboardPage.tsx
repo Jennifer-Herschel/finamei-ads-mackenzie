@@ -30,13 +30,13 @@ export function DashboardPage({ today = new Date() }: DashboardPageProps) {
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Link
-          to="/lancamentos"
+          to="/lancamentos?tipo=receita"
           className={`${actionBase} bg-emerald-700 text-white hover:bg-emerald-800`}
         >
           + Nova receita
         </Link>
         <Link
-          to="/lancamentos"
+          to="/lancamentos?tipo=despesa"
           className={`${actionBase} border border-emerald-700 text-emerald-800 hover:bg-emerald-50`}
         >
           + Nova despesa
