@@ -1,7 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { getApiErrorBody, getApiErrorMessage } from '../../lib/api-error'
+import { FormAlert } from '../../components/FormAlert'
+import { TextField } from '../../components/TextField'
+import { getApiErrorMessage } from '../../lib/api-error'
+import { applyApiFieldErrors } from '../../lib/form-errors'
 import { HttpError } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
 import {
@@ -13,13 +16,6 @@ import { useProfileQuery, useUpdateProfileMutation } from './useProfile'
 
 const EMAIL_CONFLICT_MESSAGE =
   'Este e-mail já está em uso por outra conta. Informe um e-mail diferente.'
-
-const inputBase =
-  'mt-1 block w-full rounded-lg border px-3 py-2 text-slate-900 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:bg-slate-100'
-
-function isProfileField(field: string): field is keyof ProfileFormValues {
-  return (PROFILE_FIELDS as readonly string[]).includes(field)
-}
 
 export function ProfilePage() {
   const { signOut } = useAuth()
@@ -54,8 +50,6 @@ export function ProfilePage() {
         setSuccessMessage('Perfil atualizado com sucesso.')
       },
       onError: (error) => {
-        const body = getApiErrorBody(error)
-
         if (error instanceof HttpError && error.status === 409) {
           setError(
             'email',
@@ -65,17 +59,9 @@ export function ProfilePage() {
           return
         }
 
-        let mappedFieldError = false
-        for (const [field, message] of Object.entries(
-          body?.fieldErrors ?? {},
-        )) {
-          if (isProfileField(field)) {
-            setError(field, { message }, { shouldFocus: !mappedFieldError })
-            mappedFieldError = true
-          }
+        if (!applyApiFieldErrors(error, PROFILE_FIELDS, setError)) {
+          setFormError(getApiErrorMessage(error))
         }
-
-        if (!mappedFieldError) setFormError(getApiErrorMessage(error))
       },
     })
   })
@@ -132,84 +118,34 @@ export function ProfilePage() {
 
         {profile && (
           <form noValidate onSubmit={onSubmit} className="space-y-5">
-            {formError && (
-              <p
-                role="alert"
-                className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800"
-              >
-                {formError}
-              </p>
-            )}
+            {formError && <FormAlert tone="error">{formError}</FormAlert>}
             {successMessage && (
-              <p
-                role="status"
-                className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-              >
-                {successMessage}
-              </p>
+              <FormAlert tone="success">{successMessage}</FormAlert>
             )}
 
-            <div>
-              <label
-                htmlFor="profile-name"
-                className="block text-sm font-medium text-slate-800"
-              >
-                Nome
-              </label>
-              <input
-                id="profile-name"
-                type="text"
-                autoComplete="name"
-                aria-invalid={errors.name ? 'true' : 'false'}
-                aria-describedby={
-                  errors.name ? 'profile-name-error' : undefined
-                }
-                className={`${inputBase} ${errors.name ? 'border-red-600' : 'border-slate-300'}`}
-                disabled={mutation.isPending}
-                {...register('name', {
-                  onChange: () => setSuccessMessage(null),
-                })}
-              />
-              {errors.name && (
-                <p
-                  id="profile-name-error"
-                  className="mt-1 text-sm text-red-700"
-                >
-                  {errors.name.message}
-                </p>
-              )}
-            </div>
+            <TextField
+              id="profile-name"
+              label="Nome"
+              type="text"
+              autoComplete="name"
+              error={errors.name?.message}
+              disabled={mutation.isPending}
+              {...register('name', {
+                onChange: () => setSuccessMessage(null),
+              })}
+            />
 
-            <div>
-              <label
-                htmlFor="profile-email"
-                className="block text-sm font-medium text-slate-800"
-              >
-                E-mail
-              </label>
-              <input
-                id="profile-email"
-                type="email"
-                autoComplete="email"
-                aria-invalid={errors.email ? 'true' : 'false'}
-                aria-describedby={
-                  errors.email ? 'profile-email-error' : undefined
-                }
-                className={`${inputBase} ${errors.email ? 'border-red-600' : 'border-slate-300'}`}
-                disabled={mutation.isPending}
-                {...register('email', {
-                  onChange: () => setSuccessMessage(null),
-                })}
-              />
-              {errors.email && (
-                <p
-                  id="profile-email-error"
-                  className="mt-1 text-sm text-red-700"
-                >
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
+            <TextField
+              id="profile-email"
+              label="E-mail"
+              type="email"
+              autoComplete="email"
+              error={errors.email?.message}
+              disabled={mutation.isPending}
+              {...register('email', {
+                onChange: () => setSuccessMessage(null),
+              })}
+            />
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button

@@ -5,6 +5,9 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './features/auth/AuthProvider'
+import { configureZod } from './lib/zod-config'
+
+configureZod()
 
 const queryClient = new QueryClient({
   defaultOptions: {
