@@ -16,7 +16,7 @@ cd frontend && npm install && npm run dev   # site em http://localhost:5173
 
 - Use uma **janela anônima/privada** em cada navegador, para começar sem sessão salva.
 - Anote a **versão** do navegador (menu Ajuda → Sobre).
-- Safari só existe no macOS/iOS. Se ninguém do grupo tiver Mac, dá para conferir o **layout** no Safari de um iPhone na mesma rede Wi-Fi: rode `npm run dev -- --host` e abra no celular o endereço que aparece em "Network". Nesse caso o site não alcança a API (no celular, `localhost` é o próprio celular, e o CORS só libera `http://localhost:5173`), então as telas vão mostrar a mensagem de erro de conexão; confira só a aparência.
+- O Safari só existe em aparelhos da Apple: quem tiver **Mac** testa nele do mesmo jeito que nos outros navegadores.
 
 ### Como ver em 360 px
 
