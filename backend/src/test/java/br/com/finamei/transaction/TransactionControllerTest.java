@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import br.com.finamei.category.Category;
 import br.com.finamei.category.CategoryRepository;
+import br.com.finamei.category.CategoryService;
 import br.com.finamei.security.JwtService;
 import br.com.finamei.user.User;
 import br.com.finamei.user.UserRepository;
@@ -39,9 +40,6 @@ class TransactionControllerTest {
     private static final String TRANSACTIONS_PATH = "/api/v1/transactions";
     private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
 
-    /** Categorias padrão semeadas pela migration V4. */
-    private static final String VENDA_DE_PRODUTOS = "d56eb7f3-0f0d-465b-8ba8-586faaf66bb4";
-    private static final String ALUGUEL = "b6dabeb1-c266-428f-8ef9-f3f626ca3f3b";
 
     /** "Hoje" fixo em 15/09/2026. */
     @TestBean
@@ -61,6 +59,9 @@ class TransactionControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private CategoryService categoryService;
+
+    @Autowired
     private TransactionRepository transactionRepository;
 
     @Autowired
@@ -68,9 +69,16 @@ class TransactionControllerTest {
 
     private User maria;
 
+    /** Cópias das categorias padrão pertencentes à Maria. */
+    private String vendaDeProdutos;
+    private String aluguel;
+
     @BeforeEach
     void criarUsuario() {
         maria = userRepository.save(new User("Maria Silva", "maria.lancamentos@exemplo.com", "hash"));
+        categoryService.createDefaultCategories(maria.getId());
+        vendaDeProdutos = idDaCategoria(maria, "Venda de produtos");
+        aluguel = idDaCategoria(maria, "Aluguel");
     }
 
     @Test
@@ -78,14 +86,14 @@ class TransactionControllerTest {
         registrar(maria, """
                 {"type": "INCOME", "amount": 1250.50, "date": "2026-09-10",
                  "categoryId": "%s", "description": "  Encomenda de doces  "}
-                """.formatted(VENDA_DE_PRODUTOS))
+                """.formatted(vendaDeProdutos))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.type").value("INCOME"))
                 .andExpect(jsonPath("$.amount").value(1250.50))
                 .andExpect(jsonPath("$.date").value("2026-09-10"))
                 .andExpect(jsonPath("$.description").value("Encomenda de doces"))
-                .andExpect(jsonPath("$.category.id").value(VENDA_DE_PRODUTOS))
+                .andExpect(jsonPath("$.category.id").value(vendaDeProdutos))
                 .andExpect(jsonPath("$.category.name").value("Venda de produtos"));
 
         assertThat(transactionRepository.findAll())
@@ -115,7 +123,7 @@ class TransactionControllerTest {
     void deveRecusarDadosQueViolamARn06ComErrosPorCampo() throws Exception {
         registrar(maria, """
                 {"type": "INCOME", "amount": 0, "categoryId": "%s", "description": "%s"}
-                """.formatted(VENDA_DE_PRODUTOS, "a".repeat(121)))
+                """.formatted(vendaDeProdutos, "a".repeat(121)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.fieldErrors.amount").value("O valor deve ser maior que zero."))
@@ -158,7 +166,7 @@ class TransactionControllerTest {
 
     @Test
     void deveRecusarCategoriaInativa() throws Exception {
-        Category antiga = categoryRepository.save(new Category("Vendas antigas", TransactionType.INCOME));
+        Category antiga = categoryRepository.save(new Category(maria.getId(), "Vendas antigas", TransactionType.INCOME));
         antiga.deactivate();
         categoryRepository.flush();
 
@@ -176,10 +184,23 @@ class TransactionControllerTest {
         registrar(maria, """
                 {"type": "INCOME", "amount": 100, "date": "2026-09-10",
                  "categoryId": "%s", "description": "Venda"}
-                """.formatted(ALUGUEL))
+                """.formatted(aluguel))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.categoryId")
                         .value("A categoria selecionada não corresponde ao tipo do lançamento."));
+    }
+
+    @Test
+    void deveRecusarCategoriaDeOutroUsuario() throws Exception {
+        User joao = userRepository.save(new User("João Souza", "joao.categoria@exemplo.com", "hash"));
+        categoryService.createDefaultCategories(joao.getId());
+
+        registrar(maria, """
+                {"type": "INCOME", "amount": 100, "date": "2026-09-10",
+                 "categoryId": "%s", "description": "Venda"}
+                """.formatted(idDaCategoria(joao, "Venda de produtos")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.categoryId").value("Selecione uma categoria válida."));
     }
 
     @Test
@@ -189,7 +210,7 @@ class TransactionControllerTest {
         registrar(maria, """
                 {"type": "INCOME", "amount": 100, "date": "2026-09-10", "userId": "%s",
                  "categoryId": "%s", "description": "Venda"}
-                """.formatted(joao.getId(), VENDA_DE_PRODUTOS))
+                """.formatted(joao.getId(), vendaDeProdutos))
                 .andExpect(status().isCreated());
 
         assertThat(transactionRepository.findAll())
@@ -256,16 +277,22 @@ class TransactionControllerTest {
     private String receita(String valor, String data, String descricao) {
         return """
                 {"type": "INCOME", "amount": %s, "date": "%s", "categoryId": "%s", "description": "%s"}
-                """.formatted(valor, data, VENDA_DE_PRODUTOS, descricao);
+                """.formatted(valor, data, vendaDeProdutos, descricao);
     }
 
     private Transaction lancar(User usuario, String valor, LocalDate data, String descricao) {
         return transactionRepository.save(new Transaction(
-                usuario.getId(), UUID.fromString(VENDA_DE_PRODUTOS), TransactionType.INCOME,
+                usuario.getId(), UUID.fromString(vendaDeProdutos), TransactionType.INCOME,
                 new BigDecimal(valor), data, descricao));
     }
 
     private String bearer(User usuario) {
         return "Bearer " + jwtService.generateToken(usuario);
+    }
+
+    private String idDaCategoria(User usuario, String nome) {
+        return categoryRepository.findByUserIdOrderByTypeAscNameAsc(usuario.getId()).stream()
+                .filter(categoria -> categoria.getName().equals(nome))
+                .findFirst().orElseThrow().getId().toString();
     }
 }

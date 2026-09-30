@@ -1,0 +1,10 @@
+package br.com.finamei.category.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record RenameCategoryRequest(
+
+        @NotBlank(message = "Informe o nome da categoria.")
+        @Size(max = 60, message = "O nome deve ter no máximo 60 caracteres.")
+        String name) {}

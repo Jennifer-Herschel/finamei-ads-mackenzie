@@ -51,7 +51,7 @@ public class TransactionService {
         if (request.date().isAfter(LocalDate.now(clock))) {
             throw new FieldValidationException("date", "A data não pode ser futura.");
         }
-        Category category = validCategoryFor(request);
+        Category category = validCategoryFor(userId, request);
 
         Transaction transaction = transactionRepository.save(new Transaction(
                 userId,
@@ -96,9 +96,10 @@ public class TransactionService {
         return Objects.requireNonNullElse(value, BigDecimal.ZERO);
     }
 
-    // RN06 e RN07: a categoria precisa existir, estar ativa e ser do tipo do lançamento.
-    private Category validCategoryFor(CreateTransactionRequest request) {
-        Category category = categoryRepository.findById(request.categoryId())
+    // RN06 e RN07: a categoria precisa ser do usuário, estar ativa e ser do tipo do lançamento.
+    // Categoria de outro usuário é tratada como inexistente (ONF05).
+    private Category validCategoryFor(UUID userId, CreateTransactionRequest request) {
+        Category category = categoryRepository.findByIdAndUserId(request.categoryId(), userId)
                 .orElseThrow(() -> new FieldValidationException("categoryId", "Selecione uma categoria válida."));
         if (!category.isActive()) {
             throw new FieldValidationException(

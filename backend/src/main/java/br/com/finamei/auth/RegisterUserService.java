@@ -1,6 +1,7 @@
 package br.com.finamei.auth;
 
 import br.com.finamei.auth.dto.RegisterUserRequest;
+import br.com.finamei.category.CategoryService;
 import br.com.finamei.shared.error.EmailAlreadyRegisteredException;
 import br.com.finamei.user.User;
 import br.com.finamei.user.UserRepository;
@@ -14,10 +15,13 @@ public class RegisterUserService {
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final CategoryService categoryService;
 
-	public RegisterUserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+	public RegisterUserService(
+			UserRepository userRepository, PasswordEncoder passwordEncoder, CategoryService categoryService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.categoryService = categoryService;
 	}
 
 	@Transactional
@@ -30,10 +34,15 @@ public class RegisterUserService {
 
 		User user = new User(request.name().trim(), email, passwordEncoder.encode(request.password()));
 
+		User saved;
 		try {
-			return userRepository.save(user);
+			saved = userRepository.save(user);
 		} catch (DataIntegrityViolationException ex) {
 			throw new EmailAlreadyRegisteredException();
 		}
+
+		// Cada MEI começa com a própria cópia das categorias padrão (OF10).
+		categoryService.createDefaultCategories(saved.getId());
+		return saved;
 	}
 }

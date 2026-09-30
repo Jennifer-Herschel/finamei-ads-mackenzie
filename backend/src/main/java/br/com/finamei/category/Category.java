@@ -14,7 +14,12 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Classificação de receitas e despesas. Categorias inativas não entram em novos lançamentos (RN07). */
+/**
+ * Classificação de receitas e despesas de um usuário (OF10). Categorias inativas
+ * não entram em novos lançamentos (RN07).
+ *
+ * <p>Categorias sem usuário são os modelos padrão, copiados para cada MEI no cadastro.
+ */
 @Entity
 @Table(name = "categories")
 public class Category {
@@ -22,6 +27,10 @@ public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    /** Dono da categoria; {@code null} nos modelos padrão. */
+    @Column(name = "user_id")
+    private UUID userId;
 
     @Column(nullable = false, length = 60)
     private String name;
@@ -43,9 +52,17 @@ public class Category {
         // exigido pelo JPA
     }
 
-    public Category(String name, TransactionType type) {
+    public Category(UUID userId, String name, TransactionType type) {
+        this.userId = userId;
         this.name = name;
         this.type = type;
+    }
+
+    /** Cópia de um modelo padrão para o usuário. */
+    static Category copyOf(Category template, UUID userId) {
+        Category copy = new Category(userId, template.name, template.type);
+        copy.active = template.active;
+        return copy;
     }
 
     @PrePersist
@@ -60,9 +77,17 @@ public class Category {
         this.updatedAt = Instant.now();
     }
 
+    public void rename(String newName) {
+        this.name = newName;
+    }
+
     /** Inativação (RN07): a categoria some dos novos lançamentos, mas continua nos já registrados. */
     public void deactivate() {
         this.active = false;
+    }
+
+    public void activate() {
+        this.active = true;
     }
 
     /** Só categorias ativas e do mesmo tipo podem classificar um novo lançamento (RN06, RN07). */
@@ -72,6 +97,10 @@ public class Category {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getUserId() {
+        return userId;
     }
 
     public String getName() {
